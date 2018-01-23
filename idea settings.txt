@@ -1,0 +1,142 @@
+创建maven项目时
+于properties中添加
+Name = archetypeCatalog
+Value = internal   
+//目的就是从本地下载而不是从中央仓库下载。
+(注意webapp下web.xml的版本是不是3.0以上的,可以在structure中的facets中修改
+
+
+1.Ctrl+z是撤销快捷键
+2.如果想恢复Ctrl+z 掉的内容，按快捷键为：Ctrl + Shift + Z。
+
+
+0.settings中的keymap 搜索show Intention Action 改成ctrl+1 即和eclipse一样了
+
+ctrl + h 显示接口(类)的继承结构
+
+可选:搜索Basic 改成 alt + shift + s
+generate(生成set get 属性方法) 貌似是alt+enter+s和eclipse一样,不一样就改了
+
+搜索 New,改成ctrl+n(创建类,包,文件的快捷键)(所有java文件直接new class,class有kind属性可以选择)
+
+Replace in Path (当一个单词写错,影响多个地方,用于替换写错单词的方法)
+默认为ctrl+shift+r
+
+有冲突直接应用,让被冲突的remove掉那个键
+
+快捷跳单词方式:ctrl+左右方向键;
+idea 中代码大小写切换快捷键ctr+shift+u
+
+1.File ---> Settings ---> Editor ---> General ---> PostfixCompletion有详细演示:
+
+Syso: 输入需要被打印的数据.sout
+foreach : 输入需要被循环的变量.iter
+for: 输入需要被循环的变量.for  或者  输入需要被循环的变量.fori
+return: 输入需要被返回的.return
+
+	
+2.plugins安装
+	settings中的plugins(搜索栏搜索下载,安装重启即可)
+	(Ideavim有空研究下)
+	2.1,搜索activate-power-mode,安装后重启,再在windows下面的activate-power-mode中,去勾选shake和combo,其他的勾选即可
+	2.2,搜索Background Image Plus,restart后,View选项，就可以看到Set Background Image选项了
+	2.3 Key promoter 快捷键提示
+	2.4 CheckStyle-IDEA 代码规范检查(或者直接搜索Alibaba Java Coding Guidelines)软件安装成功之后，首先要设置规则。可以通过
+Preferences—>Other Settings —>CheckStyles
+进行设置，可以直接将文件添加进来，然后就可以对具体的文件进行检查了。
+
+			(以后研究)
+			
+	2.5 FindBugs-IDEA 潜在 Bug 检查
+	2.6 MetricsReloaded 代码复杂度检查
+	2.7 Statistic 代码统计
+	2.8 JRebel Plugin 热部署
+	2.9 CodeGlance 在编辑代码最右侧，显示一块代码小地图
+	2.10 GsonFormat 把 JSON 字符串直接实例化成类
+	2.11 Eclipse Code Formatter 使用 Eclipse 的代码格式化风格，在一个团队中如果公司有规定格式化风格，这个可以使用。
+	2.12 IdeaJad 反编译工具
+
+
+eclipse中的ctrl+Q : 在setting的KeyMap中名字为Last Edit Location===>返回上次鼠标所在的位置
+
+查看源码时常用跳转:(默认键为ctrl+alt+左右方向键)
+
+3.DTD关联操作: 在setting的Schemas and DTDs中的External Schemas and DTDs 中设置,URI为XML引用DTD的网络路径,Location为电脑中的物理路径
+
+4.idea的struts2需要配置(Default File Set 文件夹下)
+	3.1 struts.xml(在src下面的struts主配置文件路径)
+	3.2 struts-default.xml 在struts2-core.jar!/struts-default.xml
+	
+5.代码格式化 ctrl+alt+L
+
+6.在setting中的File Type中的Ignore files and folders中添加 *.idea; *.iml;,那么就不会显示.idea和.iml结尾的文件了	
+
+7.如果项目父工程(父工程下面可以有多个子工程)只是一个版本依赖管理的工程，不需写代码，而且打包的方式就是pom,那么就可以删除创建工程时生成的src目录（便于管理和开发）
+
+8.按住Alt往下拉鼠标选中多行，输入即可同时写多行代码，方便写一些重复的控件声明.
+
+http://stackoverflow.com/	Stack Overflow(工作里面遇到的90%的bug都有正确答案)[重要]
+https://github.com/			世界上最大的开源代码托管平台 
+https://www.ibm.com/developerworks/cn/java/ IMBJava开发
+
+http://mvnrepository.com/  mevean仓库(几乎能找到所有的框架的jar依赖)
+--------------------------------------------------------
+
+http://www.jdon.com/       各种编程模式
+http://www.iteye.com/	   软件开发社区
+http://www.cjsdn.net/	   中国Java开发网(包含了java基础,javaee,swing所有和java相关的内容
+
+---------------------------------------------------------
+
+
+链接：https://pan.baidu.com/s/1hrV3ueC 密码：g9tz      SpringCloud资料;  
+
+
+谷歌访问助手
+
+
+
+1.http://idea.lanyus.com/
+
+-javaagent:D:\ideaIU-2017.3.1.win\bin\JetbrainsCrack-2.6.10-release-enc.jar
+	
+idea注册码(Activation Code激活方式)	
+
+
+-javaagent:D:\ideaIU-2017.3.1.win\bin\JetbrainsCrack-2.6.10-release-enc.jar
+
+
+
+
+
+ThisCrackLicenseId-{
+"licenseId":"ThisCrackLicenseId",
+"licenseeName":"yunuotianming",
+"assigneeName":"",
+"assigneeEmail":"yunuotianming@163.com",
+"licenseRestriction":"For This Crack, Only Test! Please support genuine!!!",
+"checkConcurrentUse":false,
+"products":[
+{"code":"II","paidUpTo":"2099-12-30"},
+{"code":"DM","paidUpTo":"2099-12-30"},
+{"code":"AC","paidUpTo":"2099-12-30"},
+{"code":"RS0","paidUpTo":"2099-12-30"},
+{"code":"WS","paidUpTo":"2099-12-30"},
+{"code":"DPN","paidUpTo":"2099-12-30"},
+{"code":"RC","paidUpTo":"2099-12-30"},
+{"code":"PS","paidUpTo":"2099-12-30"},
+{"code":"DC","paidUpTo":"2099-12-30"},
+{"code":"RM","paidUpTo":"2099-12-30"},
+{"code":"CL","paidUpTo":"2099-12-30"},
+{"code":"PC","paidUpTo":"2099-12-30"}
+],
+"hash":"2911276/0",
+"gracePeriodDays":7,
+"autoProlongated":false}	
+	
+	
+	
+	
+	
+	
+	

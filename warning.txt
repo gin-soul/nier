@@ -1,0 +1,153 @@
+warning : -_- 1.方法中该填写变量名的时候,却填成了"变量名",即:一直显示变量为null,或者在reflect中体现为NoSuchMethod
+
+2.column 与 row不匹配,检查列的数量,并检查表名是否写错
+
+3.sql错误时,检查数据库表的字段长度是否不够,低于你传入的长度
+
+4.删除前请备份,经常备份已经做好某个阶段的项目
+
+5.支付平台:易宝支付  连连付(lianlianpay) 点融  国付宝  温商贷
+
+6.html注入,在用户填入数据后,还需要显示该数据的情况下,用户输入<script>document.body.innerHTML="";</script>,会导致页面显示为空,所以需要定义工具类将<>转义为(&lt,&gt)(通过repalceAll("<","&lt").repalceAll(">","&gt")
+
+7.enctype=multipart/form-data形式下request.getParameter()会失效,因为在默认模式下,请求体上传的是键值对形式的参数,而multipart/form-data形式下请求体是分段的文本形式内容(text)
+
+8.(上传文件时)当一个文件夹下面的文件超过2000个时,容易卡顿,所以在存储文件的时候,应按照(用户,时间,数量等)进行分文件夹
+
+9.同样的东西不能running,尝试推倒重建可能配置异常或者jar包导入错误
+
+10.java.lang.IllegalArgumentException: object is not an instance of declaring class 反射时,method.invoke少传入了对象,或者传入了错误的对象
+
+11.ERROR: HHH000346: Error during managed flush [object references an unsaved transient instance - save the transient instance before flushing
+在使用一个实例的时候,并没有对它从游离状态转化为持久化状态,即:没有对新创建的instance 进行 save操作或者根本不存在这个instance
+transient : 短暂的; 片刻的; 转瞬即逝的
+
+12.配置文件maped error 先检查配置文件名称是否出错!!!!!! 再检查配置是否出错,struts.xml不要顺手写成了struts2.xml
+查不出错误,将原状态保留,重建或导入一个正确的文件,因为你不知道是哪里的文件单词写错了,对比之后,再互相比对
+
+13.当主键设置为native时,object的主键格式必须为Integer或者Long,否则执行create table的语句时,无法创建成功(因为其他类型,如String是不能auto_increment,native默认auto_increment)
+
+14. 千万别忘记配置核心过滤器
+	<filter>
+        <filter-name>struts2</filter-name>
+        <filter-class>org.apache.struts2.dispatcher.ng.filter.StrutsPrepareAndExecuteFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>struts2</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+	
+15.一个包中的类,配置在一个struts package中,不能分开为多个package,不然只会获得第一个package中的方法的处理结果
+
+16.@Test的错误会保存之前的错误,可以点击错误显示栏中的跳过错误,继续执行	
+
+17.HQL语句中的表名首字母需要大写,即类名,全部小写会报内部hql语句错误
+hibernate.hql.internal.antlr.HqlBaseParser.statement
+
+18.struts.xml中,全局结果集(global-results)不能配置在interceptor之前,不然package标签会报错,这时候开启tomcat会报配置的组件的顺序可能不对的错误,顺序应该按以下顺序配置  :  元素类型为 "package" 的内容必须匹配 "(result-types?,interceptors?,default-interceptor-ref?,default-action-ref?,default-class-ref?,global-results?,global-exception-mappings?,action*)"。  
+
+19.在使用spring时，遇到几个异常：
+
+第一个异常：
+java.lang.NoClassDefFoundError: org/apache/commons/logging/LogFactory
+解决：
+在buildpath中加入commons-logging-1.1.3.jar
+
+
+第二个异常：
+java.lang.IllegalStateException: BeanFactory not initialized or already closed - call 'refresh' before accessing beans via the ApplicationContext
+解决：
+错误的写法是：ApplicationContext ctx = new ClassPathXmlApplicationContext();
+应修改为ApplicationContext ctx = new ClassPathXmlApplicationContext(“beans.xml”);
+其中beans.xml是spring bean的配置文件
+
+
+修改上一个异常之后，第三个异常：
+org.springframework.beans.factory.BeanDefinitionStoreException: IOException parsing XML document from class path resource [beans.xml]; nested exception is java.io.FileNotFoundException: class path resource [beans.xml] cannot be opened because it does not exist
+解决：
+是因为beans.xml没有放在src目录下，所以没找到配置文件。
+
+
+20.CGLib中的MethodInterceptor实现方法intercept中,必须调用Object invoke = methodProxy.invokeSuper(o,objects);方法.如果调用的是Object invoke = methodProxy.invoke(o,objects);那么就相当于递归调用自己,那么就会出现java.lang.StackOverflowError的错误
+
+21. <aop:pointcut id="pointcut" expression="execution(* com.nier.service.impl.*ServiceImpl.*(..))" /> 快捷输入的情况下不要忘记了execution(),会报instance 无法初始化错误
+
+22.复制之后一定要注意包路径是否填错,idea无法解析jar包,检查是否配置的是当前项目的jar包,有没有配成其他项目的
+
+23.NotWritablePropertyException: Invalid property 'jt' of bean class [com.nier.dao.impl.UserDaoImpl]: Bean property 'jt' is not writable or has an invalid setter method. Does the parameter type of the setter match the return type of the getter?说明让Spring代理的对象所在的class,没有相应属性的set get方法,以至于无法对属性进行注入,从而无法使用该null对象
+
+24.org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'com.nier.test.TransferTest': Injection of resource dependencies failed; nested exception is org.springframework.beans.factory.NoSuchBeanDefinitionException: No bean named 'accountService' is defined2
+如果用的是注解:1.确认@ContextConfiguration有没有写成Configuration
+2.确认classpath是否正确
+3,确认是否有name为该' '中name的bean标签
+
+25.java.lang.IllegalStateException: Failed to load ApplicationContext
+java.lang.NoClassDefFoundError: org/aopalliance/intercept/MethodInterceptor;
+org.springframework.beans.factory.BeanDefinitionStoreException: Unexpected exception parsing XML document from class path resource [com/nier/dao/applicationContext.xml]; nested exception is java.lang.NoClassDefFoundError: org/aopalliance/intercept/MethodInterceptor;
+可能是包没有导全
+
+26.spring注入属性时,如果依赖其他<bean>对象,会导致注入属性失败(null),因为<bean>对象创建优先级别是平行的,而成员变量初始化就是在对象创建的过程完成的,所以这时候获取的别的<bean>对象为null,那么依赖这个属性来初始化的成员变量也会为null(可以通过设置set方法,并在该bean对象中配置property中的name和ref,在Spring中完成初始化)
+
+27. warning no match for this type name: com.nier.service.impl[Xlint:invalidAbsoluteTypeName](切点表达式错误)
+warning从下往上看,这条表示格式匹配错误execution(* com.nier.service.impl.*.*(..))
+
+
+27.2017-12-19 19:51:25,063 ERROR [com.opensymphony.xwork2.interceptor.ParametersInterceptor] - Developer Notification (set struts.devMode to false to disable this message):
+Unexpected Exception caught setting 'select' on 'class com.nier.web.action.CustomerAction: Error setting expression 'select' with value ['', ]
+错误来源:1.可能页面提交了重名字段的数据
+		2.Action中没有该名称的字段
+		3.该字段没有相应的set方法
+		4.Spring注入的话,从注入引用,字段set考虑
+		
+
+28.org.springframework.dao.InvalidDataAccessApiUsageException: Write operations are not allowed in read-only mode (FlushMode.MANUAL): Turn your Session into FlushMode.COMMIT/AUTO or remove 'readOnly' marker from transaction definition.
+错误分类:
+1.前端错误
+	1.1 检查是否报404 500之类的错误,并通过request和response区分是请求错误还是响应错误
+2.后台错误
+	1.在action中打印输出语句,看是否能进入到后台
+	2.try catch问题代码(框架之间直接抛异常,经过多层抛出之后,不能准确分析错误来源)(一般直接在action中try catch,从源头开始抓)
+
+
+ 29.Write operations are not allowed in read-only mode (FlushMode.MANUAL): Turn your Session into FlushMode.COMMIT/AUTO or remove 'readOnly' marker from transaction definition.
+ 调用了保存 更新 删除数据的方法,却没有开启事务,就没有那么高的权限,必须开启事务
+
+ 30.解决 No result defined for action xxxAction and result input
+之后，上网查资料，找问题，发现，本是Integer类型的id，被直接映射成String，从而导致了错误的发生。即控制台中所展示的Error setting expression 'id' with value ['#b.id', ]
+注意，其他几个类型为String的属性也应该用%{}包围，否则在网页上显示的是字符串的本意
+No result defined for action在排除了struts xxxAction_*配置问题后,最有可能的就是拦截器已经报错,所以无法到达后端(404) 即模型驱动类型不匹配(form表单提交的数据和模型驱动定义的接收数据不同 或 表单提交数据和Action属性接收的数据类型不匹配.如:String ---> Integer 或 基本数据类型传递给了对象数据类型(类类型))
+
+31.java.lang.IllegalArgumentException: id to load is required for loading，这是因为在使用类似findbyId(id)的查询时，传入的id为null
+那么究竟是哪里导致传入的值为null呢？
+这里从Struts2中的模型驱动这一方面来分析。
+Struts2的模型驱动在实现ModerDriven<>()接口时，必须保证前台界面的属性名称与实体类的属性名称一致。
+那么导致空值就可能是
+1、没有在action类中实现模型驱动接口；
+2、前台接收值得属性名称与实体类名称不一致。
+3. 前台没有传入id
+
+32.hbm.xml中<query name="staff.delete">
+        UPDATE Staff SET deltag = '1' WHERE id = ?
+		</query>
+		查询语句里面不能有双引号,只能用单引,不然service无法启动
+		
+		
+33.eclipse tomcat 中出现了不属于本工程的数据库,表,外键的错误,可以去tomcat目录下的wabapps中删除不属于该项目的其他项目(可能是不同项目之间的相互影响)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

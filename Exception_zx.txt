@@ -1,0 +1,224 @@
+
+1.1
+public class ExceptionTypeTest {  
+
+	public void doSomething() throws IOException{  
+		System.out.println();  
+	}
+	
+	public static void main(){  
+		ExceptionTypeTest ett = new ExceptionTypeTest();  
+		ett.doSomething();  
+	}  
+	
+} 
+
+1.2
+public class ExceptionTypeTest {  
+
+	public void doSomething() throws ClassCastException{  
+		System.out.println();  
+	}
+	
+	public static void main(){  
+		ExceptionTypeTest ett = new ExceptionTypeTest();  
+		ett.doSomething();  
+	}  
+	
+}
+
+
+
+
+
+
+(继承Object 实现Serializable)
+Throwable ----> Error
+		   ---> Exception ----> checked 
+						   ---> unchecked(RuntimeException)
+
+
+
+
+
+						   
+						   
+2.1Java中的检查型异常和非检查型异常有什么区别？
+
+这又是一个非常流行的Java异常面试题，会出现在各种层次的Java面试中。检查型异常和非检查型异常的主要区别在于其处理方式。检查型异常需要使用 try, catch和finally关键字在编译期进行处理，否则会出现编译器会报错。对于非检查型异常则不需要这样做。所有继承自RuntimeException的异常都被称为非检查型异常(NullPointerException,ClassCastException,ArrayIndexsOutOfBoundsException,ArithmeticException 等)。
+
+
+
+
+
+
+2.2Java中的NullPointerException和ArrayIndexOutOfBoundException之间有什么相同之处？
+
+在Java异常面试中这并不是一个很流行的问题，但会出现在不同层次的初学者面试中，用来测试应聘者对检查型异常和非检查型异常的概念是否熟悉。顺便说一 下，该题的答案是，这两个异常都是非检查型异常，都继承自RuntimeException。该问题可能会引出另一个问题，即Java和C的数组有什么不 同之处，因为C里面的数组是没有大小限制的，绝对不会抛出ArrayIndexOutOfBoundException。
+
+
+
+
+
+
+3.在Java异常处理的过程中，你遵循的那些最好的实践是什么？
+
+1) 调用方法的时候返回布尔值来代替返回null，这样可以 NullPointerException。由于空指针是java异常里最恶心的异常。
+
+
+2)catch块里别不写代码。空catch块是异常处理里的错误事件，因为它只是捕获了异常，却没有任何处理或者提示。通常你起码要打印出异常信息，当然你最好根据需求对异常信息进行处理。
+
+
+3)能抛受控异常（checked Exception）就尽量不抛受非控异常(unchecked Exception)。通过去掉重复的异常处理代码，可以提高代码的可读性。
+
+
+4)绝对不要让你的数据库相关异常显示到客户端。由于绝大多数数据库和SQLException异常都是受控异常，在Java中，你应该在DAO层把异常信息处理，然后返回处理过的能让用户看懂并根据异常提示信息改正操作的异常信息。
+
+
+5)在Java中，一定要在数据库连接，数据库查询，流处理后，在finally块中调用close()方法。
+
+
+
+
+
+
+什么是“异常链”?
+
+“异常链”是Java中非常流行的异常处理概念，是指在进行一个异常处理时抛出了另外一个异常，由此产生了一个异常链条。该技术大多用于将“ 受检查异常” （ checked exception）封装成为“非受检查异常”（unchecked exception)或者RuntimeException。顺便说一下，如果因为异常你决定抛出一个新的异常，你一定要包含原有的异常，这样，处理 程序才可以通过getCause()和initCause()方法来访问异常最终的根源。
+
+
+
+
+
+你曾经自定义实现过异常吗？怎么写的?
+
+很显然，我们绝大多数都写过自定义或者业务异常，像AccountNotFoundException。在面试过程中询问这个Java异常问题的主要原因 是去发现你如何使用这个特性的。这可以更准确和精致的去处理异常，当然这也跟你选择checked 还是unchecked exception息息相关。通过为每一个特定的情况创建一个特定的异常，你就为调用者更好的处理异常提供了更好的选择。相比通用异常（general exception)，我更倾向更为精确的异常。大量的创建自定义异常会增加项目class的个数，因此，在自定义异常和通用异常之间维持一个平衡是成功 的关键。
+
+
+
+
+
+
+package com.nier;
+
+public class AppTest {
+    public static void main(String[] args) {
+        String[] sexs = {"男性", "女性", "中性"};
+        //System.out.close();
+        //System.err.close();
+        for (int i = 0; i < sexs.length; i++) {
+            if ("中性".equals(sexs[i])) {
+                throw new MyException("你全家都是中性");
+            } else {
+                System.out.println(sexs[i]);
+            }
+        }
+        //new errAndOut();
+    }
+}
+
+class MyException extends RuntimeException {
+
+    private static final long serialVersionUID = 1L;
+
+    private String errorCode;
+
+    private boolean propertiesKey = true;
+
+    /**
+     * @param message 信息描述
+     */
+    public MyException(String message) {
+        super(message);
+        this.getCause();
+        //throw new RuntimeException("接着抛");
+        //this.initCause(new RuntimeException("接着抛"));
+    }
+
+    /**
+     * @param errorCode 错误编码
+     * @param message   信息描述
+     */
+    public MyException(String errorCode, String message) {
+        this(errorCode, message, true);
+    }
+
+    /**
+     * @param errorCode 错误编码
+     * @param message   信息描述
+     */
+    public MyException(String errorCode, String message, Throwable cause) {
+        this(errorCode, message, cause, true);
+    }
+
+    /**
+     * @param errorCode     错误编码
+     * @param message       信息描述
+     * @param propertiesKey 消息是否为属性文件中的Key
+     */
+    public MyException(String errorCode, String message, boolean propertiesKey) {
+        super(message);
+        this.setErrorCode(errorCode);
+        this.setPropertiesKey(propertiesKey);
+    }
+
+    /**
+     * @param errorCode 错误编码
+     * @param message   信息描述
+     */
+    public MyException(String errorCode, String message, Throwable cause, boolean propertiesKey) {
+        super(message, cause);
+        this.setErrorCode(errorCode);
+        this.setPropertiesKey(propertiesKey);
+    }
+
+    /**
+     * @param message 信息描述
+     * @param cause   根异常类（可以存入任何异常）
+     */
+    public MyException(String message, Throwable cause) {
+        super(message, cause);
+    }
+
+    public String getErrorCode() {
+        return errorCode;
+    }
+
+    public void setErrorCode(String errorCode) {
+        this.errorCode = errorCode;
+    }
+
+    public boolean isPropertiesKey() {
+        return propertiesKey;
+    }
+
+    public void setPropertiesKey(boolean propertiesKey) {
+        this.propertiesKey = propertiesKey;
+    }
+
+}
+
+/*
+    err是运行期异常和错误反馈的输出流的方向
+    System.err.println只能在屏幕上实现打印，即使你重定向了也一样
+    用err打印出的 字符串，再eclipse的console会显示成红色
+    标准输出往往是带缓存的，而标准出错没有缓存（默认设置，可以改）
+ */
+
+class errAndOut {
+    static {
+        System.out.println("1");
+    }
+
+    {
+        System.out.println("2");
+    }
+
+    {
+        System.err.println("3");
+    }
+	
+    {
+        System.err.println("4");
+    }
+}
