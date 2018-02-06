@@ -1,4 +1,0 @@
-C:\Users\15331\AppData\Roaming\Subversion\auth都删除,就能清空密码缓存
-
-github:
-https://github.com/yunuotianming/mybatis_test.git
