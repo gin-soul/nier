@@ -1,55 +1,92 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
-    <groupId>com.naruto</groupId>
-    <artifactId>mybatis</artifactId>
-    <version>1.0-SNAPSHOT</version>
-    <packaging>war</packaging>
+  <!-- 引入spring boot 父工程依赖,以便可以统一管理spring boot依赖版本 -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>2.1.5.RELEASE</version>
+    <relativePath/>
+  </parent>
 
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <java.version>1.8</java.version>
-    </properties>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.gin</groupId>
+  <artifactId>nier</artifactId>
+  <packaging>pom</packaging>
+  <version>1.0-SNAPSHOT</version>
+  <modules>
+    <module>naruto</module>
+  </modules>
 
-    <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.1.5.RELEASE</version>
-        <relativePath/>
-    </parent>
 
+
+  <!-- 父子工程之间的jar依赖关系
+       子工程依赖于父工程,作用域是compile(支持compile 和 runtime)
+       如果传递依赖到某个子模块的包不能用,那么表现形式就是class中无法导入对应jar,
+       那么在子工程中导入该jar即可
+  -->
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+
+    <!-- 统一管理jar包版本 -->
+    <alibaba.fastjson>1.2.62</alibaba.fastjson>
+  </properties>
+
+  <!-- 锁定jar包版本
+       如果该应用作为jar提供给其他方使用,那么必须要锁定jar
+       否则如果对方也有相关jar,根据路径近者优先,那么我们的jar会被替换成对方的版本
+       可能因版本不一致导致项目无法正常编译运行
+
+        注意!!!
+       dependencyManagement 只会管理版本,并不会实际引入依赖
+   -->
+  <dependencyManagement>
     <dependencies>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.openjdk.jmh</groupId>
-            <artifactId>jmh-core</artifactId>
-            <version>1.17.4</version>
-        </dependency>
-        <dependency>
-            <groupId>org.openjdk.jmh</groupId>
-            <artifactId>jmh-generator-annprocess</artifactId>
-            <version>1.17.4</version>
-        </dependency>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.11</version>
-        </dependency>
+      <dependency>
+        <groupId>com.alibaba</groupId>
+        <artifactId>fastjson</artifactId>
+        <version>${alibaba.fastjson}</version>
+      </dependency>
     </dependencies>
+  </dependencyManagement>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-        </plugins>
-    </build>
+  <!--
+  dependencies 才会实际引入 jar 依赖
+
+  解决jar包冲突的三个原则：
+  1.第一声明优先原则。
+  哪个jar包的坐标在靠上的位置(pom.xml自上而下的顺序)，哪个就是第一声明的包，最终进入项目的就是哪个包的依赖包。
+  2.路径近者优先原则。
+  直接依赖路径比传递依赖路径近，哪个路径近，进入到项目中的就是哪个的依赖包。
+  3.直接排除法。
+  使用exclusion标签直接来排除某个包下的依赖包。(<exclusions><exclusion></exclusion></exclusions>)
+
+  所有在实际开发中,需要注意:
+  1.不要随意变更 dependency 的位置,容易改变实际引用的jar的版本
+  2.添加 dependency 尽量在最后添加,对于冲突jar,使得优先使用已存在的版本的jar
+  -->
+  <dependencies>
+
+    <dependency>
+      <groupId>com.alibaba</groupId>
+      <artifactId>fastjson</artifactId>
+      <version>${alibaba.fastjson}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <!-- run maven时,默认执行的命令 -->
+    <defaultGoal>install</defaultGoal>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+
 </project>
