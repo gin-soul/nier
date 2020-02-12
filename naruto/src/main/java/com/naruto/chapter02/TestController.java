@@ -24,6 +24,7 @@ public class TestController {
     }
 
     @RequestMapping(value={"obj"})
+    @ResponseBody
     public Map entryList(@RequestBody Map map) {
         return map;
     }
