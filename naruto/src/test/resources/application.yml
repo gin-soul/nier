@@ -1,2 +1,34 @@
 server:
   port: 8080
+spring:
+  datasource:
+    platform: h2
+    schema: classpath:schema.sql
+    data: classpath:data.sql
+    #db url,default :jdbc:h2:mem:test_h2_db
+    url: jdbc:h2:mem:test_h2_db;MODE=MYSQL;
+    username: root
+    password: root
+    driverClassName: org.h2.Driver
+  h2:
+    console:
+      settings:
+        #remote visit
+        web-allow-others: true
+        trace: true
+      #console url
+      path: /h2-console
+      enabled: true
+
+mybatis:
+  config-location: classpath:mybatis-config.xml
+
+logging:
+  level:
+    root: WARN
+    mybatis:
+      mapper: TRACE
+      org:
+        hibernate: DEBUG
+
+
