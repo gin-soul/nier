@@ -1,11 +1,7 @@
-package com.gin.hdfs.file;
+package com.gin.hadoop.hdfs;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-
 import java.net.URI;
 
 /**
@@ -16,14 +12,24 @@ public class HdfsFileGetTest {
 
     private static FileSystem fileSystem;
 
-    @BeforeAll
-    public static void getFileSystem() throws  Exception{
+    /*public static void main(String[] args) {
+        try {
+            getFileSystem();
+            getFile();
+            closeFileSystem();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }*/
+
+    public static void getFileSystem() throws Exception{
         //先获取主节点连接
         fileSystem = FileSystem.get(new URI("hdfs://node01:8020"), new Configuration());
     }
 
-    @Test
-    public void getFile() throws  Exception{
+
+    public static void getFile() throws  Exception{
         System.out.println("fileSystem:" + fileSystem);
         //获取RemoteIterator 得到所有的文件或者文件夹
         // 第一个参数指定遍历的路径(起始路径, / 表示从根路径开始)
@@ -52,8 +58,7 @@ public class HdfsFileGetTest {
 
     }
 
-    @AfterAll
-    public static void closeFileSystem() throws  Exception{
+    public static void closeFileSystem() throws Exception{
         //释放资源
         fileSystem.close();
     }

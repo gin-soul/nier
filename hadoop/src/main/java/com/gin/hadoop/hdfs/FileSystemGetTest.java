@@ -1,9 +1,7 @@
-package com.gin.hdfs.file;
+package com.gin.hadoop.hdfs;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.net.URI;
 
@@ -29,11 +27,21 @@ import java.net.URI;
 
 public class FileSystemGetTest {
 
+    /*public static void main(String[] args) {
+        try {
+            getFileSystem1();
+            getFileSystem2();
+            getFileSystem3();
+            getFileSystem4();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }*/
+
     /**
      * 方式一:
      */
-    @Test
-    public void getFileSystem1() throws IOException {
+    public static void getFileSystem1() throws IOException {
         //获取Configuration对象
         Configuration configuration = new Configuration();
         //指定我们使用的文件系统类型:(使用 hostname 需要在本机的 C:\Windows\System32\drivers\etc\hosts 中配置
@@ -58,8 +66,7 @@ public class FileSystemGetTest {
     /**
      * 方式二:
      */
-    @Test
-    public void getFileSystem2() throws  Exception{
+    public static void getFileSystem2() throws Exception{
         FileSystem fileSystem = FileSystem.get(new URI("hdfs://node01:8020"), new Configuration());
         System.out.println("fileSystem:" + fileSystem);
     }
@@ -67,8 +74,7 @@ public class FileSystemGetTest {
     /**
      * 方式三:
      */
-    @Test
-    public void getFileSystem3() throws  Exception{
+    public static void getFileSystem3() throws Exception{
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", "hdfs://node01:8020");
         FileSystem fileSystem = FileSystem.newInstance(configuration);
@@ -78,8 +84,7 @@ public class FileSystemGetTest {
     /**
      * 方式四:
      */
-    @Test
-    public void getFileSystem4() throws  Exception{
+    public static void getFileSystem4() throws Exception{
         FileSystem fileSystem = FileSystem.newInstance(new URI("hdfs://node01:8020") ,new Configuration());
         System.out.println("fileSystem:" + fileSystem.toString());
     }
