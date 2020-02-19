@@ -2,6 +2,7 @@ package com.gin.hadoop.map;
 
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.Reducer;
 
 import java.io.IOException;
@@ -11,6 +12,12 @@ import java.io.IOException;
  * @date 2020/2/18 17:16
  */
 public class WordCountReducer extends Reducer<Text, LongWritable, Text, LongWritable> {
+
+
+    //自定义枚举计数器
+    public static enum MyCounter{
+        REDUCE_INPUT_KEY, REDUCE_INPUT_VALUE
+    }
 
     /**
      * 自定义reduce逻辑
@@ -42,10 +49,15 @@ public class WordCountReducer extends Reducer<Text, LongWritable, Text, LongWrit
      */
     @Override
     protected void reduce(Text key, Iterable<LongWritable> values, Context context) throws IOException, InterruptedException {
+        //自定义计数器,使用枚举方式
+        //该计数器统计reduce阶段key的个数
+        context.getCounter(MyCounter.REDUCE_INPUT_KEY).increment(1L);
         //将k2,v2 转换为 k3,v3
         long count = 0;
         //遍历集合,将集合中的值相加
         for (LongWritable value : values) {
+            //该计数器统计reduce阶段value的个数
+            context.getCounter(MyCounter.REDUCE_INPUT_KEY).increment(1L);
             count += value.get();
         }
         //然后将统计的值赋给k3

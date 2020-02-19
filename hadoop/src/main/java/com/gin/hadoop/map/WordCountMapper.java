@@ -2,19 +2,19 @@ package com.gin.hadoop.map;
 
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.Mapper;
-
 import java.io.IOException;
 
 /**
  * 数据准备
- * cd /home/hadoop/test
- * vim wordCount.txt
+ *
+ * vim word_count.txt
 
- hello,world,hadoop
- hive,sqoop,flume,hello
- kitty,tom,jerry,world
- hadoop
+hello,world,hadoop
+hive,sqoop,flume,hello
+kitty,tom,jerry,world
+hadoop
 
  假设换行符偏移量是只 +1
  0 -> hello,world,hadoop
@@ -27,8 +27,8 @@ import java.io.IOException;
 
 
  * 上传至HDFS
- * hdfs dfs -mkdir /wordCount/
- * hdfs dfs -put wordCount.txt /wordCount/
+ * hdfs dfs -mkdir /word_count/
+ * hdfs dfs -put word_count.txt /word_count/
  *
 
  可以将第一次的: key1(行偏移量) -> value1(第一行数据)
