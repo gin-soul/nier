@@ -62,9 +62,9 @@ public class SortMapper extends Mapper<LongWritable, Text, SortPairWritable, Tex
         //自定义计数器,使用普通方式
         //第一个参数为计数器的分类的名字(可自定义)
         //第二个参数为计数器的名称(可自定义)
-        Counter counter = context.getCounter("MS_CNT", "MAP_SORT_COUNTER");
+        //Counter counter = context.getCounter("MS_CNT", "MAP_SORT_COUNTER");
         //表示每执行一次map方法,计数器就会+1,最终计数器的类型,名称,次数均会在执行结果中显示
-        counter.increment(1L);
+        //counter.increment(1L);
 
         //将 v1 转换为 k2
         String[] partSplit = value.toString().split(" ");

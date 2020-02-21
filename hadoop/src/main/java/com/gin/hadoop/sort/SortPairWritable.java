@@ -100,10 +100,8 @@ public class SortPairWritable implements WritableComparable<SortPairWritable> {
 
     @Override
     public String toString() {
-        return "SortPairWritable{" +
-                "first='" + first + '\'' +
-                ", second=" + second +
-                '}';
+        //最终hadoop生成的文件数据会按照 toString 方法来处理,这里可以设置成需要的数据格式
+        return first + " " + second;
     }
 
 }

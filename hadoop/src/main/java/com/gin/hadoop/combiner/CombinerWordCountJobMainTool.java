@@ -1,4 +1,4 @@
-package com.gin.hadoop.map;
+package com.gin.hadoop.combiner;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -15,7 +15,7 @@ import org.apache.hadoop.util.ToolRunner;
  * @author gin
  * @date 2020/2/18 20:32
  */
-public class WordCountJobMainTool extends Configured implements Tool {
+public class CombinerWordCountJobMainTool extends Configured implements Tool {
 
     @Override
     public int run(String[] args) throws Exception {
@@ -23,11 +23,11 @@ public class WordCountJobMainTool extends Configured implements Tool {
         //故可以直接super通过getConf()方法获取成员变量值
         //第二个参数是任务名称,可以随便定义
         //Job job = Job.getInstance(super.getConf(), "mapReduceWordCount");
-        Job job = Job.getInstance(super.getConf(), WordCountJobMainTool.class.getSimpleName());
+        Job job = Job.getInstance(super.getConf(), CombinerWordCountJobMainTool.class.getSimpleName());
 
         //打包到集群上面运行时候，必须要添加以下配置，指定程序的main函数
         //否则会找不到对应的 Mapper 和 Reduce 类
-        job.setJarByClass(WordCountJobMainTool.class);
+        job.setJarByClass(CombinerWordCountJobMainTool.class);
 
         // 第一步：读取输入文件解析成key，value对(设置使用哪个类读取文件)
         job.setInputFormatClass(TextInputFormat.class);
@@ -35,22 +35,23 @@ public class WordCountJobMainTool extends Configured implements Tool {
         TextInputFormat.addInputPath(job, new Path("hdfs://node01:8020/word_count"));
 
         // 第二步：设置我们的mapper类(使用哪个Mapper来执行第一次的 k1,v1 -> k2,v2 转换)
-        job.setMapperClass(WordCountMapper.class);
+        job.setMapperClass(CombinerWordCountMapper.class);
         // 设置我们map阶段完成之后的输出类型(k2,v2的类型)
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(LongWritable.class);
 
         //shuffle(分区,排序,规约,分组)
-        // 第三步 分区
-        job.setPartitionerClass(WordCountPartitionByLength.class);
+        // 第三步 分区 默认1个分区
 
-        // 第四步，第五步，第六步
+        // 第四步 排序 默认
+        // 第五步 规约 提前在maptask阶段进行reduce,降低网络传输
+        job.setCombinerClass(MyCombinerReducer.class);
+
+        // 第六步 分组 默认
         // 先使用默认方式处理
 
         // 第七步：设置我们的reduce类(使用哪个reduce类来执行第二次的 新k2,v2 -> k3,v3 转换)
-        job.setReducerClass(WordCountReducer.class);
-        //设置reduce的个数(如果没有分区操作,那么默认1),有分区则根据分区操作中Partitioner业务确定
-        job.setNumReduceTasks(2);
+        job.setReducerClass(CombinerWordCountReducer.class);
         // 设置我们reduce阶段完成之后的输出类型(k3,v3的类型)
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(LongWritable.class);
@@ -68,11 +69,11 @@ public class WordCountJobMainTool extends Configured implements Tool {
     //程序main函数的入口类
     //测试方式: 需要打包成jar包 <packaging>jar</packaging>
     //上传到集群服务器后,通过 hadoop 命令启动
-    //hadoop jar hadoop-0.0.1-SNAPSHOT.jar com.gin.hadoop.map.WordCountJobMainTool
+    //hadoop jar hadoop-0.0.1-SNAPSHOT.jar com.gin.hadoop.combiner.CombinerWordCountJobMainTool
     public static void main(String[] args) throws Exception {
         //hadoop相关的一些配置可以在这里设置
         Configuration configuration = new Configuration();
-        Tool tool = new WordCountJobMainTool();
+        Tool tool = new CombinerWordCountJobMainTool();
         //第一个参数为hadoop相关配置类(会传递给当前类的 conf 变量)
         //第二个为实现了 Tool 接口的类名,所以可以使用这个类本身
         //第三个为主程序的执行参数,可以直接将main方法参数提供给run方法

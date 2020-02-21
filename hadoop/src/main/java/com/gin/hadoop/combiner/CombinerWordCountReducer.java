@@ -1,8 +1,7 @@
-package com.gin.hadoop.map;
+package com.gin.hadoop.combiner;
 
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.Reducer;
 
 import java.io.IOException;
@@ -11,7 +10,7 @@ import java.io.IOException;
  * @author gin
  * @date 2020/2/18 17:16
  */
-public class WordCountReducer extends Reducer<Text, LongWritable, Text, LongWritable> {
+public class CombinerWordCountReducer extends Reducer<Text, LongWritable, Text, LongWritable> {
 
 
     //自定义枚举计数器
