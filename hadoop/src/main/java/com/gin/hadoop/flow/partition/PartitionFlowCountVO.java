@@ -1,4 +1,4 @@
-package com.gin.hadoop.flow.combiner;
+package com.gin.hadoop.flow.partition;
 
 import org.apache.hadoop.io.Writable;
 
@@ -39,7 +39,7 @@ import java.io.IOException;
  * 这里不需要排序,直接实现 Writable,需要排序情况下实现 WritableComparable
  *
  */
-public class FlowCountVO implements Writable {
+public class PartitionFlowCountVO implements Writable {
 
     //上行包总数,下行包总数
     //上行流量,下行流量
