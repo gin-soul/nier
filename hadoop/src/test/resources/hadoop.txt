@@ -1,0 +1,1461 @@
+1.虚拟机网络配置
+在网络适配器(网络连接)中,找到VMware Network Adapter VMnet8,修改网络配置为:
+ip地址:    192.168.25.1  (固定ip即可,倒数第二网段和虚拟机(编辑 -> 虚拟网络编辑器 中的保持一致)
+子网掩码:  255.255.255.0
+默认网关:  192.168.25.2	  (和虚拟机"虚拟网络编辑器"中配置保持一致,且虚拟机配置 /etc/sysconfig/network-scripts/ifcfg-eth** 时也要保持一致)
+
+首选DNS服务器: 8.8.8.8
+
+2.针对虚拟机特殊配置
+VMware 如果版本不一致,需要以txt形式修改配置中的版本
+修改
+CentOS 6 64 位.vmx
+参数对应自己安装的VMware版本
+virtualHW.version = "12"
+
+并在
+虚拟机右键,选择"设置"
+点击"选项" -> "常规" -> "客户机操作系统" -> "linux" -> "版本 CentOS6"
+
+内存建议 2.5G+
+cpu核数建议 2+
+
+
+
+会常用到的命令:
+ps -ef|grep sshd
+ps -ef|grep sshd|grep -v grep
+grep -n 'hello' a.txt
+
+查找文件并显示详细信息
+find . -name "*.log" -ls
+查找/root/目录下面权限为777的文件
+find /root/ -perm 777
+查找当前目录大于100M的文件
+find . -size +100M
+
+
+查询效率优于find的locate命令
+需先安装:
+yum -y install mlocate
+安装后,会自动创建 /var/lib/mlocate/mlocate.db 数据库,以统计分析linux的所有文件
+数据库每天更新一次,所以查询前需要先更新一次最新数据(文件都被索引了,所以查询比find快)
+
+手动更新数据库
+updatedb
+
+查看/etc/下面所有以sh开头的文件
+locate /etc/sh
+
+查看和pwd相关的文件
+locate pwd
+
+用户相关
+useradd 用户名:  添加用户
+userdel 用户名:  删除用户
+passwd  用户名:  设置密码
+
+用户授权
+chmod +w /etc/sudoers
+vim /etc/sudoers
+在文件最后添加如下内容：
+
+# add privilege for hadoop
+hadoop ALL=(ALL) ALL
+# end
+
+su 切换用户
+建议使用切换时使用 su - 用户名 (切换用户并切换环境,仅仅使用su 可能切换会出现环境不对问题)
+su - hadoop
+
+授权
+chmod 777 /home/hadoop -R
+chmod u+x a.txt
+chmod g-rwx a.txt
+
+修改用户组:用户
+chown -R hadoop:hadoop a.txt
+
+
+系统服务命令
+service 对应服务名 命令
+
+service iptables status
+service iptables stop
+
+# 查看系统所有的后台服务进程
+service --status-all
+
+# 查看指定的后台服务进程的状态
+service sshd status
+关闭,启动,重启
+service sshd stop
+service sshd start
+service sshd restart
+
+
+配置防火墙开机开启/关闭
+chkconfig iptables on
+chkconfig iptables off
+
+让httpd服务开机开启/关闭
+chkconfig httpd on
+chkconfig httpd off
+
+
+
+编写shell脚本
+
+语法:
+
+约定(非必须)
+一般shell脚本以 .sh 结尾
+
+固定写法: /bin/bash 表示解析器为/bin下面的bash解析器(注意这里的#并不是注释)
+#!/bin/bash
+
+例:
+创建存放shell的文件夹
+mkdir /root/shells
+
+创建文件并编辑脚本
+vim hello.sh
+
+添加下面内容:
+
+#!/bin/bash
+echo "Hello World !"
+
+执行方式:
+方式1:
+sh hello.sh
+
+方式2:
+chmod +x ./hello.sh
+./hello.sh
+
+
+shell变量
+局部变量:
+
+vim hello2.sh
+chmod +x hello2.sh
+
+#!/bin/bash
+str="hello"
+# 变量和其他字符串间有空格或制表符分割开,可以省略括号
+echo $str World !
+# 变量和其他字符串黏连,需要大括号
+echo ${str}World !
+
+
+环境变量:
+使用命令查看环境变量
+env
+
+可看到
+HOSTNAME=node01
+SHELL=/bin/bash
+TERM=xterm
+HISTSIZE=1000
+QTDIR=/usr/lib64/qt-3.3
+QTINC=/usr/lib64/qt-3.3/include
+USER=root
+等等信息
+
+自定义环境变量:
+vim /etc/profile
+
+在文件最后新增:
+
+
+# maven env begin
+JAVA_HOME=/usr/local/jdk1.8.0_191
+CLASSPATH=$JAVA_HOME/lib/
+PATH=$PATH:$JAVA_HOME/bin
+export PATH JAVA_HOME CLASSPATH
+# maven env end
+
+# maven env begin
+export MAVEN_HOME=/opt/apache-maven-3.5.4
+export PATH=$MAVEN_HOME/bin:$PATH
+# maven env end
+
+使环境配置文件生效:
+source /etc/profile
+
+#!/bin/bash
+echo "Hello World !"
+
+
+
+特殊字符:
+
+$#   ->	 传递到脚本的参数个数
+$*   ->	 以一个单字符串显示所有向脚本传递的参数。
+$$   ->	 脚本运行的当前进程 ID 号
+$!   ->	 后台运行的最后一个进程的 ID 号
+$@   ->	 与$*相同，但是使用时加引号，并在引号中返回每个参数。
+$?   ->	 显示最后命令的退出状态。 0 表示没有错误，其他任何值表明有错误。
+
+例:
+
+vim hello2.sh
+chmod +x hello2.sh
+
+#!/bin/bash
+echo "第一个参数为： $1";
+echo "参数个数为： $#";
+echo "传递的参数作为一个字符串显示： $*";
+
+
+执行命令,并添加参数:
+sh hello2.sh hello world hadoop
+
+输出结果为:
+第一个参数为： hello
+参数个数为： 3
+传递的参数作为一个字符串显示： hello world hadoop
+
+
+
+运算符:
+
+vim hello3.sh
+chmod +x hello3.sh
+
+#!/bin/bash
+a=1;
+b=2;
+# 使用反引号可以解析反引号中间的命令, expr 对字符串,整数求值关键字, + - 运算符要通过空格隔开变量
+echo `expr $a + $b`;
+# *需要转义为乘号,否则会被理解为匹配符
+echo `expr $a \* $b`;
+echo $((a+b));
+echo $[a+b];
+
+
+
+if语句:
+
+#!/bin/bash
+# read命令用于从控制台读取输入数据, 并赋值给 NAME 变量
+read -p "please input your name:" NAME
+# printf '%s\n' $NAME 根据输入信息打印内容
+# 注意 [ ] 两边都需要预留空格, = 两边也需要预留空格, = 这里表示的不是赋值而是判断
+if [ $NAME = root ]
+	then
+		echo "hello ${NAME}, welcome !"
+	elif [ $NAME = gin ]
+	then
+		echo "hello ${NAME}, welcome !"
+	else
+		echo "Get out Please!"
+fi
+
+
+
+for 语句:
+方式1:
+
+#!/bin/bash
+for N in 1 2 3
+do
+    echo $N
+done
+
+
+
+方式2:
+#!/bin/bash
+for ((i = 0; i <= 5; i++))
+ do
+    echo "welcome $i times"
+ done
+
+
+
+函数
+
+#!/bin/bash
+# 需要定义函数名
+funWithReturn(){
+echo "这个函数会对输入的两个数字进行相加运算..."
+echo "输入第一个数字: "
+read aNum
+echo "输入第二个数字: "
+read anotherNum
+echo "两个数字分别为 $aNum 和 $anotherNum !"
+return $(($aNum+$anotherNum))
+}
+# 这里表示调用函数(直接写上函数名即可)
+funWithReturn
+# $? 表示返回上一次变量的返回值
+echo "输入的两个数字之和为 $? !"
+
+
+
+linux系统需要关闭SElinux,安全模式较为复杂
+
+vi /etc/selinux/config
+
+# 将强制安全模式注释掉,并新增一行为关闭状态
+#SELINUX=enforcing
+SELINUX=disabled
+
+
+集群间机器免密访问:
+通过公私钥进行安全认证
+
+配置步骤:
+1.生成公私钥
+ssh-keygen -t rsa
+直接回车即可
+
+查看公私钥:
+cd /root/.ssh
+
+2. 把需要访问该主机的服务器
+
+所有共享访问的服务机器的公钥将拷贝到第一台机器中
+(本机也要拷贝,会生成互联公钥信息到 authorized_keys 中)
+执行命令:
+
+ssh-copy-id node01
+或
+ssh-copy-id 192.168.25.110
+
+3.复制第一台机器的认证到其他机器
+
+将第一台机器的公钥信息集合文件拷贝到其他机器上
+scp /root/.ssh/authorized_keys node02:/root/.ssh
+scp /root/.ssh/authorized_keys node03:/root/.ssh
+scp /root/.ssh/authorized_keys node04:/root/.ssh
+
+
+验证免密登录:
+在第一台机器上执行:
+ssh node02
+或
+ssh 192.168.25.120
+
+
+机器时钟同步
+因为很多分布式系统是有状态的, 比如说存储一个数据, A节点 记录的时间是 1, B节点 记录的时间是 2, 就会出问题
+
+安装时间同步服务器
+yum install -y ntp
+
+启动定时任务
+crontab -e
+
+编辑输入,每分钟同步一次(分别代表 分 时
+*/1 * * * * /usr/sbin/ntpdate ntp4.aliyun.com;
+
+
+查看日期:
+date
+
+
+
+查看自带的openjdk(需卸载)
+rpm -qa | grep java
+
+卸载系统自带的openjdk(根据上面显示的信息进行删除)
+rpm -e java-1.6.0-openjdk-1.6.0.41-1.13.13.1.el6_8.x86_64 tzdata-java-2016j-1.el6.noarch java-1.7.0-openjdk-1.7.0.131-2.6.9.0.el6_8.x86_64 --nodeps
+
+查看是否卸载完成
+rpm -qa | grep java
+
+
+将jdk解压到指定目录后,修改环境配置:
+vim /etc/profile
+
+
+# cancel mail check
+unset MAILCHECK
+
+
+# jdk env begin
+JAVA_HOME=/home/hadoop/mw/jdk1.8.0_141
+CLASSPATH=$JAVA_HOME/lib/
+PATH=$PATH:$JAVA_HOME/bin
+export PATH JAVA_HOME CLASSPATH
+# jdk env end
+
+
+zookeeper配置
+拷贝一份配置 cp zoo_sample.cfg zoo.cfg
+
+修改下列内容:
+
+dataDir=/home/hadoop/mw/zookeeper-3.4.9/zkdatas
+# 保留多少个快照
+autopurge.snapRetainCount=3
+# 日志多少小时清理一次
+autopurge.purgeInterval=1
+# 集群中服务器地址
+server.1=node01:2888:3888
+server.2=node02:2888:3888
+server.3=node03:2888:3888
+
+zookeeper-3.4.9/zkdatas /这个路径下创建一个文件，文件名为myid ,文件内容为1(每台机器不同)
+echo 1 > zkdatas/myid
+
+启动
+bin/zkServer.sh start
+
+启动状态查看
+bin/zkServer.sh status
+
+集群启动时的简单选举:
+第一台启动时是不会进行选举的,
+第二台启动时,会开始投票,这时第一台给自己投票,第二台也是给自己投票;这时各自有一票,则比较myid中的值谁更大
+
+复杂选举:
+当主节点宕机,
+从第一台开始投票,均投给自己;没有服务器获得半数以上支持则不能选举出leader;
+这时第二台开始发起投票,这时第一台投票给第二台,第二台投票给自己,如此继续下去,直至有服务获取半数以上投票
+
+
+Zookeeper的Shell 客户端操作
+通过
+bin/zkCli.sh
+来启动zk的客户端连接
+
+| 命令                             | 说明                                          | 参数                                             |
+| -------------------------------- | --------------------------------------------- | ------------------------------------------------ |
+| `create [-s] [-e] path data acl` | 创建Znode,path为路径,data为创建节点包含的数据 | -s 指定是顺序节点<br>-e 指定是临时节点           |
+| `ls path [watch]`                | 列出Path下所有子Znode                         |                                                  |
+| `get path [watch]`               | 获取Path对应的Znode的数据和属性               |                                                  |
+| `ls2 path [watch]`               | 查看Path下所有子Znode以及子Znode的属性        |                                                  |
+| `set path data [version]`        | 更新节点                                      | version 数据版本                                 |
+| `delete path [version]`          | 删除节点, 如果要删除的节点有子Znode则无法删除 | version 数据版本                                 |
+| `rmr path`                       | 删除节点, 如果有子Znode则递归删除             |                                                  |
+| `setquota -n|-b val path`        | 修改Znode配额                                 | -n 设置子节点最大个数<br>-b 设置节点数据最大长度 |
+| `history`                        | 列出历史记录                                  |                                                  |
+
+
+
+1：创建普通节点
+app1表示节点名(路径); hello表示当前节点(app1包含的数据)
+create /app1 hello
+
+2: 创建顺序节点
+
+create -s /app3 world
+
+3:创建临时节点
+
+create -e /tempnode world
+
+4:创建顺序的临时节点(客户端和临时节点断开则临时会消失)
+
+create -s -e /tempnode2 aaa
+
+5:获取节点数据
+
+get /app1
+
+6:修改节点数据
+
+set /app1  xxx
+
+7:删除节点
+
+删除的节点不能有子节点
+delete  /app1
+
+递归删除
+rmr    /app1
+
+
+修改配置文件(注意:编码不对会格式化失败,建议直接vi编辑,复制)
+配置文件的位置在
+cd /home/hadoop/mw/hadoop-3.1.1/etc/hadoop
+
+core-site.xml
+
+<configuration>
+	<!-- 指定文件存储类型,目前使用的是hdfs分布式文件存储类型 -->
+    <property>
+		<name>fs.defaultFS</name>
+		<value>hdfs://node01:8020</value>
+	</property>
+	<!-- 临时文件存储目录 -->
+	<property>
+		<name>hadoop.tmp.dir</name>
+		<value>/home/hadoop/mw/hadoop-3.1.1/datas/tmp</value>
+	</property>
+    <!--  缓冲区大小，实际工作中根据服务器性能动态调整 -->
+	<property>
+		<name>io.file.buffer.size</name>
+		<value>8192</value>
+	</property>
+    <!--  开启hdfs的垃圾桶机制，删除掉的数据可以从垃圾桶中回收，单位分钟 -->
+	<property>
+		<name>fs.trash.interval</name>
+		<!-- 这里设置的是7天 -->
+		<value>10080</value>
+	</property>
+
+	<!-- 注意!!!如果使用hive,那么需要添加下面两项配置 -->
+	<!--
+	<property>
+		<name>hadoop.proxyuser.hadoop.hosts</name>
+		<value>*</value>
+	</property>
+	<property>
+		<name>hadoop.proxyuser.hadoop.groups</name>
+		<value>root</value>
+	</property>
+	-->
+</configuration>
+
+
+
+hadoop-env.sh
+(搜索 export JAVA_HOME,打开注释并配置,
+注意带 export ,因为env包含了两个修改 JAVA_HOME 的位置)
+
+export JAVA_HOME=/home/hadoop/mw/jdk1.8.0_141
+
+这里配置错误,在运行时会出现下列错误:
+Container exited with a non-zero exit code 127. Error file: prelaunch.err.
+Last 4096 bytes of prelaunch.err :
+Last 4096 bytes of stderr :
+/bin/bash: /bin/java: No such file or directory
+
+如果配置没有问题还存在报错,可将 JAVA_HOME 软连接到 /bin/java
+ln -s /home/hadoop/mw/jdk1.8.0_141/bin/java /bin/java
+
+
+hdfs-site.xml
+
+<configuration>
+	<!-- 配置namenode元数据的存放路径 -->
+	<property>
+		<name>dfs.namenode.name.dir</name>
+		<value>file:///home/hadoop/mw/hadoop-3.1.1/datas/namenode/namenodedatas</value>
+	</property>
+	<!-- 设置文件块的大小: BLOCK(大文件需要拆分时,每块零件大小) -->
+	<property>
+		<name>dfs.blocksize</name>
+		<!-- 单位byte,这里设置的是128M -->
+		<value>134217728</value>
+	</property>
+	<!--  -->
+	<property>
+		<name>dfs.namenode.handler.count</name>
+		<value>10</value>
+	</property>
+	<!-- datanode数据存放目录 -->
+	<property>
+		<name>dfs.datanode.data.dir</name>
+		<value>file:///home/hadoop/mw/hadoop-3.1.1/datas/datanode/datanodeDatas</value>
+	</property>
+	<!-- 通过浏览器访问hdfs的端口 -->
+	<property>
+		<name>dfs.namenode.http-address</name>
+		<value>node01:50070</value>
+	</property>
+	<!-- 设置文件的副本数 -->
+	<property>
+		<name>dfs.replication</name>
+		<value>3</value>
+	</property>
+	<!-- 设置hdfs的访问权限 -->
+	<property>
+		<name>dfs.permissions.enabled</name>
+		<value>false</value>
+	</property>
+	<!-- 设置hdfs检查点 -->
+	<property>
+		<name>dfs.namenode.checkpoint.edits.dir</name>
+		<value>file:///home/hadoop/mw/hadoop-3.1.1/datas/dfs/nn/snn/edits</value>
+	</property>
+	<property>
+		<name>dfs.namenode.secondary.http-address</name>
+		<value>node01.hadoop.com:50090</value>
+	</property>
+	<!-- 设置hdfs日志文件路径 -->
+	<property>
+		<name>dfs.namenode.edits.dir</name>
+		<value>file:///home/hadoop/mw/hadoop-3.1.1/datas/dfs/nn/edits</value>
+	</property>
+	<property>
+		<name>dfs.namenode.checkpoint.dir</name>
+		<value>file:///home/hadoop/mw/hadoop-3.1.1/datas/dfs/snn/name</value>
+	</property>
+</configuration>
+
+
+
+mapred-site.xml
+
+<configuration>
+	<!-- 指定MapReduce的执行框架:yarn -->
+	<property>
+		<name>mapreduce.framework.name</name>
+		<value>yarn</value>
+	</property>
+	<property>
+		<name>mapreduce.map.memory.mb</name>
+		<value>1024</value>
+	</property>
+	<property>
+		<name>mapreduce.map.java.opts</name>
+		<value>-Xmx512M</value>
+	</property>
+	<property>
+		<name>mapreduce.reduce.memory.mb</name>
+		<value>1024</value>
+	</property>
+	<property>
+		<name>mapreduce.reduce.java.opts</name>
+		<value>-Xmx512M</value>
+	</property>
+	<property>
+		<name>mapreduce.task.io.sort.mb</name>
+		<value>256</value>
+	</property>
+	<property>
+		<name>mapreduce.task.io.sort.factor</name>
+		<value>100</value>
+	</property>
+	<property>
+		<name>mapreduce.reduce.shuffle.parallelcopies</name>
+		<value>25</value>
+	</property>
+	<property>
+		<name>mapreduce.jobhistory.address</name>
+		<value>node01.hadoop.com:10020</value>
+	</property>
+	<property>
+		<name>mapreduce.jobhistory.webapp.address</name>
+		<value>node01.hadoop.com:19888</value>
+	</property>
+	<property>
+		<name>mapreduce.jobhistory.intermediate-done-dir</name>
+		<value>/home/hadoop/mw/hadoop-3.1.1/datas/jobhsitory/intermediateDoneDatas</value>
+	</property>
+	<property>
+		<name>mapreduce.jobhistory.done-dir</name>
+		<value>/home/hadoop/mw/hadoop-3.1.1/datas/jobhsitory/DoneDatas</value>
+	</property>
+	<property>
+	  <name>yarn.app.mapreduce.am.env</name>
+	  <value>HADOOP_MAPRED_HOME=/home/hadoop/mw/hadoop-3.1.1</value>
+	</property>
+	<property>
+	  <name>mapreduce.map.env</name>
+	  <value>HADOOP_MAPRED_HOME=/home/hadoop/mw/hadoop-3.1.1/</value>
+	</property>
+	<property>
+	  <name>mapreduce.reduce.env</name>
+	  <value>HADOOP_MAPRED_HOME=/home/hadoop/mw/hadoop-3.1.1</value>
+	</property>
+</configuration>
+
+
+
+yarn-site.xml
+
+<configuration>
+	<property>
+		<name>dfs.namenode.handler.count</name>
+		<value>100</value>
+	</property>
+	<property>
+		<name>yarn.log-aggregation-enable</name>
+		<value>true</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.address</name>
+		<value>node01:8032</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.scheduler.address</name>
+		<value>node01:8030</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.resource-tracker.address</name>
+		<value>node01:8031</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.admin.address</name>
+		<value>node01:8033</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.webapp.address</name>
+		<value>node01:8088</value>
+	</property>
+	<property>
+		<name>yarn.resourcemanager.hostname</name>
+		<value>node01</value>
+	</property>
+	<property>
+		<name>yarn.scheduler.minimum-allocation-mb</name>
+		<value>1024</value>
+	</property>
+	<property>
+		<name>yarn.scheduler.maximum-allocation-mb</name>
+		<value>2048</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.vmem-pmem-ratio</name>
+		<value>2.1</value>
+	</property>
+	<!-- 设置不检查虚拟内存的值,不然内存不够会报错,yarn对内存要求较高,开发环境需要关闭 -->
+	<property>
+		<name>yarn.nodemanager.vmem-check-enabled</name>
+		<value>false</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.resource.memory-mb</name>
+		<value>1024</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.resource.detect-hardware-capabilities</name>
+		<value>true</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.local-dirs</name>
+		<value>file:///home/hadoop/mw/hadoop-3.1.1/datas/nodemanager/nodemanagerDatas</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.log-dirs</name>
+		<value>file:///home/hadoop/mw/hadoop-3.1.1/datas/nodemanager/nodemanagerLogs</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.log.retain-seconds</name>
+		<value>10800</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.remote-app-log-dir</name>
+		<value>/home/hadoop/mw/hadoop-3.1.1/datas/remoteAppLog/remoteAppLogs</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.remote-app-log-dir-suffix</name>
+		<value>logs</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.aux-services</name>
+		<value>mapreduce_shuffle</value>
+	</property>
+	<property>
+		<name>yarn.log-aggregation.retain-seconds</name>
+		<value>18144000</value>
+	</property>
+	<property>
+		<name>yarn.log-aggregation.retain-check-interval-seconds</name>
+		<value>86400</value>
+	</property>
+	<!-- yarn上面运行一个任务,最少需要1.5G内存,开发环境虚拟机没有这么大的内存就调小这个值,不然会报错 -->
+	<property>
+        <name>yarn.app.mapreduce.am.resource.mb</name>
+        <value>1024</value>
+	</property>
+</configuration>
+
+
+
+
+worker 配置文件,添加对应主机的hostname
+
+node01 对应hdfs yarn 访问页面
+node01.hadoop.com 对应一些页面上下载上传操作
+
+192.168.25.110 node01 node01.hadoop.com
+192.168.25.120 node02 node02.hadoop.com
+192.168.25.130 node03 node03.hadoop.com
+
+
+创建配置对应文件夹
+mkdir -p /home/hadoop/mw/hadoop-3.1.1/datas/tmp
+mkdir -p /home/hadoop/mw/hadoop-3.1.1/datas/dfs/nn/snn/edits
+mkdir -p /home/hadoop/mw/hadoop-3.1.1/datas/namenode/namenodedatas
+mkdir -p /home/hadoop/mw/hadoop-3.1.1/datas/datanode/datanodeDatas
+mkdir -p /home/hadoop/mw/hadoop-3.1.1/datas/dfs/nn/edits
+mkdir -p /home/hadoop/mw/hadoop-3.1.1/datas/dfs/snn/name
+mkdir -p /home/hadoop/mw/hadoop-3.1.1/datas/jobhsitory/intermediateDoneDatas
+mkdir -p /home/hadoop/mw/hadoop-3.1.1/datas/jobhsitory/DoneDatas
+mkdir -p /home/hadoop/mw/hadoop-3.1.1/datas/nodemanager/nodemanagerDatas
+mkdir -p /home/hadoop/mw/hadoop-3.1.1/datas/nodemanager/nodemanagerLogs
+mkdir -p /home/hadoop/mw/hadoop-3.1.1/datas/remoteAppLog/remoteAppLogs
+
+
+切换到修改好的目录下面,再将修改好的配置分发到其他服务器
+cd /home/hadoop/mw/hadoop-3.1.1/etc
+# $PWD 获取的是当前会话shell的当前路径(即: 这时$PWD 等价于 /home/hadoop/mw/hadoop-3.1.1/etc)
+scp -r hadoop/ node04:$PWD
+
+
+在每个节点配置环境变量
+sudo vim /etc/profile
+
+# hadoop env begin
+export HADOOP_HOME=/home/hadoop/mw/hadoop-3.1.1/
+export PATH=:$HADOOP_HOME/bin:$HADOOP_HOME/sbin:$PATH
+# hadoop env end
+
+source /etc/profile
+
+
+格式化HDFS
+- 为什么要格式化HDFS
+  - HDFS需要一个格式化的过程来创建存放元数据(image, editlog)的目录
+(注意:如果格式化失败,可能是配置文件编码格式不对,建议直接vi 编辑,复制)
+cd /home/hadoop/mw/hadoop-3.1.1
+bin/hdfs namenode -format
+
+
+
+设置/home/hadoop/mw/hadoop-3.1.1/etc/hadoop/hadoop-env.sh
+在文件最后添加:
+
+# Users using Hadoop
+export HDFS_NAMENODE_USER="root"
+export HDFS_DATANODE_USER="root"
+export HDFS_SECONDARYNAMENODE_USER="root"
+export YARN_RESOURCEMANAGER_USER="root"
+export YARN_NODEMANAGER_USER="root"
+
+
+启动集群
+
+/home/hadoop/mw/zookeeper-3.4.9/bin/zkServer.sh start
+
+# 会登录进所有的worker启动相关进行, 也可以手动进行, 但是没必要
+(直接在node01这台主节点服务器执行命令即可,从节点会对应启动)
+1.执行下列命令,先启动hdfs:
+/home/hadoop/mw/hadoop-3.1.1/sbin/start-dfs.sh
+
+jps显示为:
+3873 SecondaryNameNode
+4213 Jps
+2774 QuorumPeerMain
+3658 DataNode
+3498 NameNode
+
+2.执行下列命令,再启动yarn:
+/home/hadoop/mw/hadoop-3.1.1/sbin/start-yarn.sh
+
+jps显示为:(新增了 NodeManager ResourceManager )
+3873 SecondaryNameNode
+5441 ResourceManager
+5826 Jps
+2774 QuorumPeerMain
+3658 DataNode
+5594 NodeManager
+3498 NameNode
+
+3.执行下列命令,再启动mapred 历史信息查看:
+mapred --daemon start historyserver
+
+停止集群
+mapred --daemon stop historyserver
+/home/hadoop/mw/hadoop-3.1.1/sbin/stop-yarn.sh
+/home/hadoop/mw/hadoop-3.1.1/sbin/stop-dfs.sh
+
+
+浏览器范文验证:
+- HDFS:
+	http://192.168.25.110:50070/dfshealth.html#tab-overview
+	显示 Overview 'node01:8020' (active) 表示成功运行
+- Yarn:
+	http://192.168.25.110:8088/cluster
+
+
+
+测试上传文件:
+
+cd /home/hadoop/
+mkdir test
+cd /home/hadoop/test
+touch abc.txt
+hdfs dfs -put abc.txt /
+
+文件查看页面
+http://192.168.25.110:50070/explorer.html#/
+
+
+
+
+hdfs常用的操作命令
+hdfs  dfs   -ls  /  查看根路径下面的文件或者文件夹
+hdfs  dfs  -mkdir  -p   /xx/xxx  在hdfs上面递归的创建文件夹
+hdfs  dfs -moveFromLocal  sourceDir(本地磁盘的文件或者文件夹的路径)   destDir（hdfs的路径）
+hdfs  dfs  -mv  hdfsSourceDir   hdfsDestDir
+hdfs  dfs -put  localDir  hdfsDir   将本地文件系统的文件或者文件夹放到hdfs上面去
+hdfs  dfs -appendToFile a.txt b.txt /hello.txt
+hdfs  dfs -cat  hdfsDir 查看hdfs的文件内容
+hdfs  dfs  -cp   hdfsSourceDIr   hdfsDestDir   拷贝文件或者文件夹
+hdfs  dfs  -rm   [-r]  （递归）删除文件或者文件夹
+
+hdfs的权限管理两个命令：
+hdfs  dfs  -chmod -R  777  /xxx
+hdfs  dfs  -chown  -R hadoop:hadoop  /xxx
+
+
+
+
+
+
+**在windows系统配置hadoop运行环境:**
+
+第一步：将apache-hadoop-3.1.1(需要下载windows版本的)文件夹拷贝到一个没有中文没有空格的路径下面
+
+第二步：在windows上面配置hadoop的环境变量：
+		-> 添加一条环境变量 HADOOP_HOME
+		-> 将 HADOOP_HOME 添加到 PATH 中: %HADOOP_HOME%\bin
+
+第三步：把bin目录下的hadoop.dll文件放到系统盘里面去  C:\Windows\System32
+
+第四步：关闭windows重启
+
+
+
+
+hdfs访问权限控制
+停止hdfs集群，在node01机器上执行以下命令
+cd /export/servers/hadoop-3.1.1
+sbin/stop-dfs.sh
+
+
+修改node01机器上的hdfs-site.xml当中的配置文件
+cd /export/servers/hadoop-3.1.1/etc/hadoop
+vim hdfs-site.xml
+
+# 之前配置文件默认的是 false,方便操作(其他系统操作,也会校验该系统的用户名)
+如需要开启权限控制,设置为 true 即可
+
+<property>
+	<name>dfs.permissions.enabled</name>
+	<value>true</value>
+</property>
+
+
+修改完成之后配置文件发送到其他机器上面去
+scp hdfs-site.xml node02:$PWD
+scp hdfs-site.xml node03:$PWD
+
+
+随意上传一些文件到我们hadoop集群当中准备测试使用
+cd /export/servers/hadoop-3.1.1/etc/hadoop
+hdfs dfs -mkdir /config
+hdfs dfs -put *.xml /config
+hdfs dfs -chmod 600 /config/core-site.xml
+
+这时候再下载会发现并没有权限
+
+
+
+
+
+MapReduce
+Map负责“分”，即把复杂的任务分解为若干个“简单的任务”来并行处理。
+可以进行拆 分的前提是这些小任务可以并行计算，彼此间几乎没有依赖关系。
+
+Reduce负责“合”，即对map阶段的结果进行全局汇总。
+
+构建抽象模型：
+Map和Reduce MapReduce借鉴了函数式语言中的思想，
+用Map和Reduce两个函数提供了高层的并行编程抽象模型
+Map: 对一组数据元素进行某种重复式的处理；
+Reduce: 对Map的中间结果进行某种进一步的结果整理。
+Map和Reduce为程序员提供了一个清晰的操作接口抽象描述。
+MapReduce 处理的数据类型是键值对。
+ MapReduce中定义了如下的Map和Reduce两个抽象的编程接口，由用户去编程实现:
+ Map: (k1; v1) → [(k2; v2)]
+ Reduce: (k2; [v2]) → [(k3; v3)]
+
+MapReduce运行在yarn集群
+1. ResourceManager (主节点,接收(Applications Manager),分发(Resource Scheduler)任务)
+2. NodeManager
+
+一个完整的mapreduce程序在分布式运行时有三类实例进程：
+1. MRAppMaster 负责整个程序的过程调度及状态协调
+2. MapTask 负责map阶段的整个数据处理流程
+3. ReduceTask 负责reduce阶段的整个数据处理流程
+
+
+在 MapReduce 中, Reduce 当中默认的分区只有一个通过我们指定分区(根据业务需求,对k2进行分区),
+会将同一个分区的数据发送到同一个 Reduce 当中进行处理, 并生成一个reduce结果文件
+例如: 为了数据的统计, 可以把一批类似的数据发送到同一个 Reduce 当中,
+在同一个 Reduce 当中统计相同类型的数据, 就可以实现类似的数据分区和统计等
+其实就是相同类型的数据, 有共性的数据, 送到一起去处理
+Reduce 当中默认的分区只有一个
+
+Map: (k1; v1) → [(k2; v2)]
+Reduce1: (k2(对2取模余0的数据); [v2]) → [(k3; v3)] -> 结果文件1
+Reduce2: (k2(对2取模余1的数据); [v2]) → [(k3; v3)] -> 结果文件2
+结果文件1+结果文件2 = 原先未切割分区的reduce的结果
+
+
+
+每一个 map 都可能会产生大量的本地输出，
+Combiner 的作用就是对 map 端的输出先做一次合并(在map端先做一次reduce)，
+以减少在 map 和 reduce 节点之间的数据传输量，以提高网络IO性能，
+是 MapReduce 的一种优化手段之一.
+
+combiner 是 MR 程序中 Mapper 和 Reducer 之外的一种组件
+	combiner 组件的父类就是Reducer(combiner 和 reducer 的区别在于运行的位置)
+	Combiner 是在每一个 maptask 所在的节点运行
+Reducer 是接收全局所有 Mapper 的输出结果
+combiner 的意义就是对每一个 maptask 的输出进行局部汇总，以减小网络传输量
+
+
+
+Hive的安装
+上传并解压安装包 将我们的hive的安装包(需要对应hadoop安装版本)上传到第一台服务，
+然后进行解压
+tar -zxvf apache-hive-3.1.0-bin.tar.gz -C /home/hadoop/
+
+
+由于hive自带数据库不是特别好使用,故安装
+第一步：在线安装mysql相关的软件包
+yum install mysql mysql-server mysql-devel
+
+第二步：启动mysql的服务
+/etc/init.d/mysqld start
+
+第三步：通过mysql安装自带脚本进行设置
+/usr/bin/mysql_secure_installation
+
+
+设置root密码: 123456
+Set root password? [Y/n] Y
+New password:
+Re-enter new password:
+
+
+移除匿名用户,可选Y
+Remove anonymous users? [Y/n] Y
+ ... Success!
+
+
+禁止远程访问:需选n
+Disallow root login remotely? [Y/n] n
+
+
+移除测试数据库:可选n
+Remove test database and access to it? [Y/n] n
+
+
+重新加载权限表:需选Y
+Reload privilege tables now? [Y/n] Y
+
+
+第四步：进入mysql的客户端然后进行授权
+mysql -u root -p
+grant all privileges on *.* to 'root'@'%' identified by '123456' with grant option;
+flush privileges;
+
+
+
+
+修改hive的配置文件
+修改hive-env.sh
+cd /home/hadoop/mw/apache-hive-3.1.0-bin/conf
+cp hive-env.sh.template hive-env.sh
+vim hive-env.sh
+
+找到 HADOOP_HOME 和 export HIVE_CONF_DIR并设置地址
+HADOOP_HOME=/home/hadoop/mw/hadoop-3.1.1/
+export HIVE_CONF_DIR=/home/hadoop/mw/apache-hive-3.1.0-bin/conf
+
+
+如果没有hive-site.xml则新建一个,将下面内容添加进去
+cd /home/hadoop/mw/apache-hive-3.1.0-bin/conf
+vim hive-site.xml
+分别是对 数据库用户,密码,位置,(createDatabaseIfNotExist表示不存在就会自动创建)
+连接驱动,是否校验格式,是否自动创建,绑定mysql所在服务器域名等的设置
+
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+    <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>root</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>123456</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:mysql://node01:3306/hive?createDatabaseIfNotExist=true&amp;useSSL=false</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>com.mysql.jdbc.Driver</value>
+    </property>
+    <property>
+        <name>hive.metastore.schema.verification</name>
+        <value>false</value>
+    </property>
+    <property>
+        <name>datanucleus.schema.autoCreateAll</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>hive.server2.thrift.bind.host</name>
+        <value>node01.hadoop.com</value>
+    </property>
+    <!--
+    <property>
+    <name>hive.metastore.uris</name>
+    <value>thrift://node01:9083</value>
+    <description>JDBC connect string for a JDBC metastore</description>
+    </property>
+    <property>
+    <name>hive.metastore.local</name>
+    <value>false</value>
+    <description>this is local store</description>
+    </property>
+    -->
+</configuration>
+
+
+添加mysql的连接驱动包到hive的lib目录下
+hive使用mysql作为元数据存储，必然需要连接mysql数据库，所以我们添加一个mysql的连接驱动包到
+hive的安装目录下，然后就可以准备启动hive
+将我们准备好的mysql-connector-java-5.1.38.jar 这个jar包直接上传到
+/home/hadoop/mw/apache-hive-3.1.0-bin/lib 这个目录下即可
+
+
+配置hive的环境变量
+node01服务器执行以下命令配置hive的环境变量
+sudo vim /etc/profile
+export HIVE_HOME=/home/hadoop/mw/apache-hive-3.1.0-bin/
+export PATH=:$HIVE_HOME/bin:$PATH
+
+source /etc/profile
+
+
+Hive 的三种交互方式
+第一种交互方式 bin/hive
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+执行 hive 命令,hive则会开始加载
+bin/hive
+创建一个数据库
+create database if not exists mytest;
+show databases;
+use mytest;
+create table my_test(id int, name string);
+show tables;
+
+第二种交互方式 HiveServer2
+hive官方推荐使用hiveserver2的这种交互方式，
+需要我们启动hiveserver2这个服务端，
+然后通过客户端去进行连接
+
+启动服务端（前台启动命令如下）
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+bin/hive --service hiveserver2
+
+重新开一个窗口启动我们的客户单进行连接
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+bin/beeline
+!connect jdbc:hive2://node01.hadoop.com:10000
+进行连接，用户名为root 密码为123456出现以下错误
+User: root is not allowed to impersonate root (state=08S01,code=0)
+注意: User:后面的是对应无权限的用户名,需要在 core-site.xml 对应配置,name的值也取决于用户名!!!
+
+解决方法：关闭hive的服务端，在hadoop的配置文件
+/home/hadoop/mw/hadoop-3.1.1/etc/hadoop/core-site.xml当中添加以下两行配置，
+
+如果User:后面对应的用户名是hadoop,则name值为:
+<property>
+	<name>hadoop.proxyuser.hadoop.hosts</name>
+	<value>*</value>
+</property>
+<property>
+	<name>hadoop.proxyuser.hadoop.groups</name>
+	<value>*</value>
+</property>
+
+如果User:后面对应的用户名是root,则name值为:
+<property>
+	<name>hadoop.proxyuser.root.hosts</name>
+	<value>*</value>
+</property>
+<property>
+	<name>hadoop.proxyuser.root.groups</name>
+	<value>*</value>
+</property>
+
+
+
+然后重启hdfs以及yarn集群
+mapred --daemon stop historyserver && \
+/home/hadoop/mw/hadoop-3.1.1/sbin/stop-yarn.sh && \
+/home/hadoop/mw/hadoop-3.1.1/sbin/stop-dfs.sh;
+
+/home/hadoop/mw/hadoop-3.1.1/sbin/start-dfs.sh && \
+/home/hadoop/mw/hadoop-3.1.1/sbin/start-yarn.sh && \
+mapred --daemon start historyserver;
+
+
+重新进行启动hive的服务端，然后继续使用客户端进行连接即可
+启动服务端
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+/home/hadoop/mw/apache-hive-3.1.0-bin/bin/hive --service hiveserver2
+
+守护启动:
+nohup hiveserver2 1>./hiveserver.log 2>./hiveserver_error.log &
+
+开一个新的xshell会话窗口，客户端进行连接
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+/home/hadoop/mw/apache-hive-3.1.0-bin/bin/beeline
+!connect jdbc:hive2://node01.hadoop.com:10000
+
+会显示开始连接:
+Connecting to jdbc:hive2://node01.hadoop.com:10000
+输入用户名: hadoop(注意:这里是安装hadoop集群的用户名,这里是使用hadoop安装的,
+有些使用root或其他用户名安装的,要使用对应的用户名)
+Enter username for jdbc:hive2://node01.hadoop.com:10000: hadoop
+输入密码:123456(对应用户名的密码)
+Enter password for jdbc:hive2://node01.hadoop.com:10000: ******
+连接成功信息,命令栏:
+Connected to: Apache Hive (version 3.1.0)
+Driver: Hive JDBC (version 3.1.0)
+Transaction isolation: TRANSACTION_REPEATABLE_READ
+0: jdbc:hive2://node01.hadoop.com:10000>
+
+
+第三种交互方式：使用sql语句或者sql脚本进行交互
+不进入hive的客户端直接执行hive的hql语句
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+bin/hive -e "create database if not exists mytest;"
+或者我们可以将我们的hql语句写成一个sql脚本然后执行
+cd /export/servers
+vim hive.sql
+
+--  hive.sql test begin
+create database if not exists mytest;
+use mytest;
+create table stu(id int,name string);
+-- hive.sql test end
+
+通过hive -f 来执行我们的sql脚本
+hive -f hive.sql
+
+会显示执行成功:
+Logging initialized using configuration in jar:file:/home/hadoop/mw/apache-hive-3.1.0-bin/lib/hive-common-3.1.0.jar!/hive-log4j2.properties Async: true
+Hive Session ID = 97e86ba8-5b57-473d-aca1-ec9976af6c0a
+OK
+Time taken: 1.185 seconds
+OK
+Time taken: 0.024 seconds
+OK
+Time taken: 0.772 seconds
+
+
+
+创建数据库(数据库均以文件形式存放在hdfs的目录中)
+默认位置: /user/hive/warehouse/
+
+create database if not exists myhive;
+use myhive;
+
+hive的表存放位置模式是由hive-site.xml当中的一个属性指定的
+<name>hive.metastore.warehouse.dir</name>
+<value>/user/hive/warehouse</value>
+
+创建数据库并指定位置
+create database mytest location '/mytest';
+
+修改数据库
+可以使用alter database 命令来修改数据库的一些属性。但是数据库的元数据信息是不可更改的，
+包括数据库的名称以及数据库所在的位置
+alter database mytest set dbproperties('createtime'='20180611');
+
+查看数据库信息:
+查看数据库基本信息
+desc database mytest;
+
+查看数据库更多详细信息
+desc database extended mytest;
+
+
+删除数据库
+删除一个空数据库，如果数据库下面有数据表，那么就会报错
+drop database mytest;
+
+强制删除数据库，包含数据库下面的表一起删除(不要轻易执行)
+drop database myhive cascade;
+
+
+创建数据库表的语法
+CREATE [EXTERNAL] TABLE [IF NOT EXISTS] table_name
+[(col_name data_type [COMMENT col_comment], ...)]
+[COMMENT table_comment]
+[PARTITIONED BY (col_name data_type [COMMENT col_comment], ...)]
+[CLUSTERED BY (col_name, col_name, ...)
+[SORTED BY (col_name [ASC|DESC], ...)] INTO num_buckets BUCKETS]
+[ROW FORMAT row_format]
+[STORED AS file_format]
+[LOCATION hdfs_path]
+说明：
+1. CREATE TABLE 创建一个指定名字的表。如果相同名字的表已经存在，
+则抛出异常；用户可以用IF NOT EXISTS 选项来忽略这个异常。
+2. EXTERNAL关键字可以让用户创建一个外部表，在建表的同时指定一个指向实际数据的路径（LOCATION），
+Hive 创建内部表时，会将数据移动到数据仓库指向的路径；若创建外部表，仅记录数据所在的路径，
+不对数据的位置做任何改变。在删除表的时候，内部表的元数据和数据会被一起删除，
+而外部表只删除元数据，不删除数据(外部表相对安全)。
+3. LIKE 允许用户复制现有的表结构，但是不复制数据。
+4. ROW FORMAT DELIMITED 行分隔符
+[FIELDS TERMINATED BY char]
+[COLLECTION ITEMSTERMINATED BY char]
+[MAP KEYS TERMINATED BY char]
+[LINES TERMINATED BY char] |SERDE serde_name [WITH SERDEPROPERTIES (property_name=property_value,property_name=property_value, ...)]
+用户在建表的时候可以自定义 SerDe 或者使用自带的 SerDe。如果没有指定 ROW FORMAT 或者
+ROW FORMAT DELIMITED，将会使用自带的 SerDe。在建表的时候，用户还需要为表指定列
+用户在指定表的列的同时也会指定自定义的 SerDe，Hive通过 SerDe 确定表的具体的列的数据。
+5. STORED AS
+SEQUENCEFILE|TEXTFILE|RCFILE
+如果文件数据是纯文本，可以使用 STORED AS TEXTFILE。如果数据需要压缩，使用 STORED AS SEQUENCEFILE。
+6. PARTITIONED BY(文件夹数量太多,则需要分区,即分文件夹存储)
+	分区,一个表可以拥有一个或者多个分区,每个分区以文件夹的形式单独存在表文件夹的目录下
+7. SORTED BY
+排序
+8. ROW FORMAT
+指定数据之间的分隔符
+9. CLUSTERED BY (单个文件太大,则需要分桶拆分文件)
+对于每一个表（table）或者分区， Hive可以进一步组织成桶，也就是说桶是更为细粒度的数据范
+围划分。Hive也是 针对某一列进行桶的组织。Hive采用对列值哈希，然后除以桶的个数求余的方
+式决定该条记录存放在哪个桶当中。
+把表（或者分区）组织成桶（Bucket）有两个理由：
+1. 获得更高的查询处理效率。桶为表加上了额外的结构，Hive 在处理有些查询时能利用这个结
+构。具体而言，连接两个在（包含连接列的）相同列上划分了桶的表，可以使用 Map 端连接
+（Map-side join）高效的实现。比如JOIN操作。对于JOIN操作两个表有一个相同的列，如果
+对这两个表都进了桶操作。那么将保存相同列值的桶进行JOIN操作就可以，可以大大较少JOIN的数据量。
+2. 使取样（sampling）更高效。在处理大规模数据集时，在开发和修改查询的阶段，如果能在
+数据集的一小部分数据上试运行查询，会带来很多方便
+
+
+
+建表测试(虚拟机时间不同步添加数据会出Check time and time zones错, 需执行 /usr/sbin/ntpdate ntp4.aliyun.com; )
+
+-- 创建内部表
+/home/hadoop/mw/apache-hive-3.1.0-bin/bin/hive
+create database if not exists myhive;
+use myhive;
+create table stu(id int,name string);
+-- 尽量避免在hive中进行数据插入或修改,会启动mapreduce,比较消耗资源,主要应在hive进行数据分析)
+insert into stu values (1,"zhangsan");
+select * from stu;
+
+
+创建表并指定字段之间的分隔符
+create table if not exists stu2(id int ,name string) row format delimited fields terminated by '\t';
+insert into stu2 values (2,"nier");
+insert into stu2 values (3,"luffy");
+select * from stu2;
+
+根据查询结果创建表
+-- 通过复制表结构和表内容创建新表
+create table stu3 as select * from stu2;
+select * from stu3;
+
+根据已经存在的表结构创建表
+-- 拷贝表结构,不复制内容
+create table stu4 like stu2;
+
+
+外部表的操作
+外部表说明
+外部表因为是指定其他的hdfs路径的数据加载到表当中来，
+所以hive表会认为自己不完全独占这份数据，所以删除hive表的时候，
+数据仍然存放在hdfs当中，不会删掉
+/home/hadoop/mw/apache-hive-3.1.0-bin/bin/hive
+
+创建老师表
+create external table teacher (t_id string,t_name string) row format delimited fields terminated by '\t';
+
+创建学生表
+create external table student (s_id string,s_name string,s_birth string , s_sex string ) row format delimited fields terminated by '\t';
+
+加载数据
+load data local inpath '/home/hadoop/software/student.csv' into table student;
+
+加载数据并覆盖已有数据
+load data local inpath '/home/hadoop/software/student.csv' overwrite into table student;
+
+
+从hdfs文件系统向表中加载数据（需要提前将数据上传到hdfs文件系统）
+在linux的shell命令中执行
+cd /home/hadoop/software/
+hdfs dfs -mkdir -p /hivedatas
+hdfs dfs -put techer.csv /hivedatas/
+在hive中执行加载(是个剪切操作)
+load data inpath '/hivedatas/techer.csv' into table teacher;
+
+
+
+分区表
+在大数据中，最常用的一种思想就是分治，我们可以把大的文件切割划分成一个个的小的文件，
+这样每次操作一个小的文件就会很容易了，同样的道理，在hive当中也是支持这种思想的，
+就是我们可以把大的数据，按照每天，或者每小时进行切分成一个个的小的文件，
+这样去操作小的文件就会容易得多了
+创建分区表语法
+/home/hadoop/mw/apache-hive-3.1.0-bin/bin/hive
+create database if not exists myhive;
+use myhive;
+创建一个表带多个分区
+create table score(s_id string,c_id string, s_score int) partitioned by (month string) row format delimited fields terminated by '\t';
+create table score2 (s_id string,c_id string, s_score int) partitioned by (year string,month string,day string) row format delimited fields terminated by '\t';
+
+
+
+加载数据到分区表中(分文件存放,/user/hive/warehouse/myhive.db/score/month=201806)
+load data local inpath '/home/hadoop/software/score.csv' into table score partition (month='201806');
+
+加载数据到多分区表中(分文件存放,那么存放路径为 /user/hive/warehouse/myhive.db/score2/year=2018/month=06/day=01 )
+load data local inpath '/home/hadoop/software/score.csv' into table score2 partition(year='2018',month='06',day='01');
+
+多分区表联合查询(使用 union all )
+select * from score where month = '201806' union all select * from score where month = '201806';
+查看分区
+show partitions score;
+添加一个分区
+alter table score add partition(month='201805');
+删除分区
+alter table score drop partition(month = '201806');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
