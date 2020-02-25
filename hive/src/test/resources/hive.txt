@@ -1,0 +1,895 @@
+Hive的安装
+上传并解压安装包 将我们的hive的安装包(需要对应hadoop安装版本)上传到第一台服务，
+然后进行解压
+tar -zxvf apache-hive-3.1.0-bin.tar.gz -C /home/hadoop/
+
+
+由于hive自带数据库不是特别好使用,故安装
+第一步：在线安装mysql相关的软件包
+yum install mysql mysql-server mysql-devel
+
+第二步：启动mysql的服务
+/etc/init.d/mysqld start
+
+第三步：通过mysql安装自带脚本进行设置
+/usr/bin/mysql_secure_installation
+
+
+设置root密码: 123456
+Set root password? [Y/n] Y
+New password:
+Re-enter new password:
+
+
+移除匿名用户,可选Y
+Remove anonymous users? [Y/n] Y
+ ... Success!
+
+
+禁止远程访问:需选n
+Disallow root login remotely? [Y/n] n
+
+
+移除测试数据库:可选n
+Remove test database and access to it? [Y/n] n
+
+
+重新加载权限表:需选Y
+Reload privilege tables now? [Y/n] Y
+
+
+第四步：进入mysql的客户端然后进行授权
+mysql -u root -p
+grant all privileges on *.* to 'root'@'%' identified by '123456' with grant option;
+flush privileges;
+
+
+
+
+修改hive的配置文件
+修改hive-env.sh
+cd /home/hadoop/mw/apache-hive-3.1.0-bin/conf
+cp hive-env.sh.template hive-env.sh
+vim hive-env.sh
+
+找到 HADOOP_HOME 和 export HIVE_CONF_DIR并设置地址
+HADOOP_HOME=/home/hadoop/mw/hadoop-3.1.1/
+export HIVE_CONF_DIR=/home/hadoop/mw/apache-hive-3.1.0-bin/conf
+
+
+如果没有hive-site.xml则新建一个,将下面内容添加进去
+cd /home/hadoop/mw/apache-hive-3.1.0-bin/conf
+vim hive-site.xml
+分别是对 数据库用户,密码,位置,(createDatabaseIfNotExist表示不存在就会自动创建)
+连接驱动,是否校验格式,是否自动创建,绑定mysql所在服务器域名等的设置
+
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+    <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>root</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>123456</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:mysql://node01:3306/hive?createDatabaseIfNotExist=true&amp;useSSL=false</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>com.mysql.jdbc.Driver</value>
+    </property>
+    <property>
+        <name>hive.metastore.schema.verification</name>
+        <value>false</value>
+    </property>
+    <property>
+        <name>datanucleus.schema.autoCreateAll</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>hive.server2.thrift.bind.host</name>
+        <value>node01.hadoop.com</value>
+    </property>
+    <!--
+    <property>
+    <name>hive.metastore.uris</name>
+    <value>thrift://node01:9083</value>
+    <description>JDBC connect string for a JDBC metastore</description>
+    </property>
+    <property>
+    <name>hive.metastore.local</name>
+    <value>false</value>
+    <description>this is local store</description>
+    </property>
+    -->
+</configuration>
+
+
+添加mysql的连接驱动包到hive的lib目录下
+hive使用mysql作为元数据存储，必然需要连接mysql数据库，所以我们添加一个mysql的连接驱动包到
+hive的安装目录下，然后就可以准备启动hive
+将我们准备好的mysql-connector-java-5.1.38.jar 这个jar包直接上传到
+/home/hadoop/mw/apache-hive-3.1.0-bin/lib 这个目录下即可
+
+
+配置hive的环境变量
+node01服务器执行以下命令配置hive的环境变量
+sudo vim /etc/profile
+export HIVE_HOME=/home/hadoop/mw/apache-hive-3.1.0-bin/
+export PATH=:$HIVE_HOME/bin:$PATH
+
+source /etc/profile
+
+
+Hive 的三种交互方式
+第一种交互方式 bin/hive
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+执行 hive 命令,hive则会开始加载
+bin/hive
+创建一个数据库
+create database if not exists mytest;
+show databases;
+use mytest;
+create table my_test(id int, name string);
+show tables;
+
+第二种交互方式 HiveServer2
+hive官方推荐使用hiveserver2的这种交互方式，
+需要我们启动hiveserver2这个服务端，
+然后通过客户端去进行连接
+
+启动服务端（前台启动命令如下）
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+bin/hive --service hiveserver2
+
+重新开一个窗口启动我们的客户单进行连接
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+bin/beeline
+!connect jdbc:hive2://node01.hadoop.com:10000
+进行连接，用户名为root 密码为123456出现以下错误
+User: root is not allowed to impersonate root (state=08S01,code=0)
+注意: User:后面的是对应无权限的用户名,需要在 core-site.xml 对应配置,name的值也取决于用户名!!!
+
+解决方法：关闭hive的服务端，在hadoop的配置文件
+/home/hadoop/mw/hadoop-3.1.1/etc/hadoop/core-site.xml当中添加以下两行配置，
+
+如果User:后面对应的用户名是hadoop,则name值为:
+<property>
+	<name>hadoop.proxyuser.hadoop.hosts</name>
+	<value>*</value>
+</property>
+<property>
+	<name>hadoop.proxyuser.hadoop.groups</name>
+	<value>*</value>
+</property>
+
+如果User:后面对应的用户名是root,则name值为:
+<property>
+	<name>hadoop.proxyuser.root.hosts</name>
+	<value>*</value>
+</property>
+<property>
+	<name>hadoop.proxyuser.root.groups</name>
+	<value>*</value>
+</property>
+
+
+
+然后重启hdfs以及yarn集群
+mapred --daemon stop historyserver && \
+/home/hadoop/mw/hadoop-3.1.1/sbin/stop-yarn.sh && \
+/home/hadoop/mw/hadoop-3.1.1/sbin/stop-dfs.sh;
+
+/home/hadoop/mw/hadoop-3.1.1/sbin/start-dfs.sh && \
+/home/hadoop/mw/hadoop-3.1.1/sbin/start-yarn.sh && \
+mapred --daemon start historyserver;
+
+
+重新进行启动hive的服务端，然后继续使用客户端进行连接即可
+启动服务端
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+/home/hadoop/mw/apache-hive-3.1.0-bin/bin/hive --service hiveserver2
+
+守护启动:
+nohup hiveserver2 1>./hiveserver.log 2>./hiveserver_error.log &
+
+开一个新的xshell会话窗口，客户端进行连接
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+/home/hadoop/mw/apache-hive-3.1.0-bin/bin/beeline
+!connect jdbc:hive2://node01.hadoop.com:10000
+
+会显示开始连接:
+Connecting to jdbc:hive2://node01.hadoop.com:10000
+输入用户名: hadoop(注意:这里是安装hadoop集群的用户名,这里是使用hadoop安装的,
+有些使用root或其他用户名安装的,要使用对应的用户名)
+Enter username for jdbc:hive2://node01.hadoop.com:10000: hadoop
+输入密码:123456(对应用户名的密码)
+Enter password for jdbc:hive2://node01.hadoop.com:10000: ******
+连接成功信息,命令栏:
+Connected to: Apache Hive (version 3.1.0)
+Driver: Hive JDBC (version 3.1.0)
+Transaction isolation: TRANSACTION_REPEATABLE_READ
+0: jdbc:hive2://node01.hadoop.com:10000>
+
+
+第三种交互方式：使用sql语句或者sql脚本进行交互
+不进入hive的客户端直接执行hive的hql语句
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+bin/hive -e "create database if not exists mytest;"
+或者我们可以将我们的hql语句写成一个sql脚本然后执行
+cd /export/servers
+vim hive.sql
+
+--  hive.sql test begin
+create database if not exists mytest;
+use mytest;
+create table stu(id int,name string);
+-- hive.sql test end
+
+通过hive -f 来执行我们的sql脚本
+hive -f hive.sql
+
+会显示执行成功:
+Logging initialized using configuration in jar:file:/home/hadoop/mw/apache-hive-3.1.0-bin/lib/hive-common-3.1.0.jar!/hive-log4j2.properties Async: true
+Hive Session ID = 97e86ba8-5b57-473d-aca1-ec9976af6c0a
+OK
+Time taken: 1.185 seconds
+OK
+Time taken: 0.024 seconds
+OK
+Time taken: 0.772 seconds
+
+
+
+创建数据库(数据库均以文件形式存放在hdfs的目录中)
+默认位置: /user/hive/warehouse/
+
+create database if not exists myhive;
+use myhive;
+
+hive的表存放位置模式是由hive-site.xml当中的一个属性指定的
+<name>hive.metastore.warehouse.dir</name>
+<value>/user/hive/warehouse</value>
+
+创建数据库并指定位置
+create database mytest location '/mytest';
+
+修改数据库
+可以使用alter database 命令来修改数据库的一些属性。但是数据库的元数据信息是不可更改的，
+包括数据库的名称以及数据库所在的位置
+alter database mytest set dbproperties('createtime'='20180611');
+
+查看数据库信息:
+查看数据库基本信息
+desc database mytest;
+
+查看数据库更多详细信息
+desc database extended mytest;
+
+
+删除数据库
+删除一个空数据库，如果数据库下面有数据表，那么就会报错
+drop database mytest;
+
+强制删除数据库，包含数据库下面的表一起删除(不要轻易执行)
+drop database myhive cascade;
+
+
+创建数据库表的语法
+CREATE [EXTERNAL] TABLE [IF NOT EXISTS] table_name
+[(col_name data_type [COMMENT col_comment], ...)]
+[COMMENT table_comment]
+[PARTITIONED BY (col_name data_type [COMMENT col_comment], ...)]
+[CLUSTERED BY (col_name, col_name, ...)
+[SORTED BY (col_name [ASC|DESC], ...)] INTO num_buckets BUCKETS]
+[ROW FORMAT row_format]
+[STORED AS file_format]
+[LOCATION hdfs_path]
+说明：
+1. CREATE TABLE 创建一个指定名字的表。如果相同名字的表已经存在，
+则抛出异常；用户可以用IF NOT EXISTS 选项来忽略这个异常。
+2. EXTERNAL关键字可以让用户创建一个外部表，在建表的同时指定一个指向实际数据的路径（LOCATION），
+Hive 创建内部表时，会将数据移动到数据仓库指向的路径；若创建外部表，仅记录数据所在的路径，
+不对数据的位置做任何改变。在删除表的时候，内部表的元数据和数据会被一起删除，
+而外部表只删除元数据，不删除数据(外部表相对安全)。
+3. LIKE 允许用户复制现有的表结构，但是不复制数据。
+4. ROW FORMAT DELIMITED 行分隔符
+[FIELDS TERMINATED BY char]
+[COLLECTION ITEMSTERMINATED BY char]
+[MAP KEYS TERMINATED BY char]
+[LINES TERMINATED BY char] |SERDE serde_name [WITH SERDEPROPERTIES (property_name=property_value,property_name=property_value, ...)]
+用户在建表的时候可以自定义 SerDe 或者使用自带的 SerDe。如果没有指定 ROW FORMAT 或者
+ROW FORMAT DELIMITED，将会使用自带的 SerDe。在建表的时候，用户还需要为表指定列
+用户在指定表的列的同时也会指定自定义的 SerDe，Hive通过 SerDe 确定表的具体的列的数据。
+5. STORED AS
+SEQUENCEFILE|TEXTFILE|RCFILE
+如果文件数据是纯文本，可以使用 STORED AS TEXTFILE。如果数据需要压缩，使用 STORED AS SEQUENCEFILE。
+6. PARTITIONED BY(文件夹数量太多,则需要分区,即分文件夹存储)
+	分区,一个表可以拥有一个或者多个分区,每个分区以文件夹的形式单独存在表文件夹的目录下
+7. SORTED BY
+排序
+8. ROW FORMAT
+指定数据之间的分隔符
+9. CLUSTERED BY (单个文件太大,则需要分桶拆分文件)
+对于每一个表（table）或者分区， Hive可以进一步组织成桶，也就是说桶是更为细粒度的数据范
+围划分。Hive也是 针对某一列进行桶的组织。Hive采用对列值哈希，然后除以桶的个数求余的方
+式决定该条记录存放在哪个桶当中。
+把表（或者分区）组织成桶（Bucket）有两个理由：
+1. 获得更高的查询处理效率。桶为表加上了额外的结构，Hive 在处理有些查询时能利用这个结
+构。具体而言，连接两个在（包含连接列的）相同列上划分了桶的表，可以使用 Map 端连接
+（Map-side join）高效的实现。比如JOIN操作。对于JOIN操作两个表有一个相同的列，如果
+对这两个表都进了桶操作。那么将保存相同列值的桶进行JOIN操作就可以，可以大大较少JOIN的数据量。
+2. 使取样（sampling）更高效。在处理大规模数据集时，在开发和修改查询的阶段，如果能在
+数据集的一小部分数据上试运行查询，会带来很多方便
+
+
+
+建表测试(虚拟机时间不同步添加数据会出Check time and time zones错, 需执行 /usr/sbin/ntpdate ntp4.aliyun.com; )
+
+-- 创建内部表
+/home/hadoop/mw/apache-hive-3.1.0-bin/bin/hive
+create database if not exists myhive;
+use myhive;
+create table stu(id int,name string);
+-- 尽量避免在hive中进行数据插入或修改,会启动mapreduce,比较消耗资源,主要应在hive进行数据分析)
+insert into stu values (1,"zhangsan");
+insert into stu values (2,"nier");
+insert into stu values (3,"luffy");
+
+select * from stu;
+
+
+创建表并指定字段之间的分隔符
+create table if not exists stu2(id int ,name string) row format delimited fields terminated by '\t';
+insert into stu2 values (4,"gin");
+insert into stu2 values (5,"naruto");
+select * from stu2;
+
+根据查询结果创建表
+-- 通过复制表结构和表内容创建新表
+create table stu3 as select * from stu2;
+select * from stu3;
+
+根据已经存在的表结构创建表
+-- 拷贝表结构,不复制内容
+create table stu4 like stu2;
+
+
+外部表的操作
+外部表说明
+外部表因为是指定其他的hdfs路径的数据加载到表当中来，
+所以hive表会认为自己不完全独占这份数据，所以删除hive表的时候，
+数据仍然存放在hdfs当中，不会删掉
+/home/hadoop/mw/apache-hive-3.1.0-bin/bin/hive
+
+创建老师表
+create external table teacher (t_id string,t_name string) row format delimited fields terminated by '\t';
+
+创建学生表
+create external table student (s_id string,s_name string,s_birth string , s_sex string ) row format delimited fields terminated by '\t';
+
+加载数据
+load data local inpath '/home/hadoop/software/student.csv' into table student;
+
+加载数据并覆盖已有数据
+load data local inpath '/home/hadoop/software/student.csv' overwrite into table student;
+
+
+从hdfs文件系统向表中加载数据（需要提前将数据上传到hdfs文件系统）
+在linux的shell命令中执行
+cd /home/hadoop/software/
+hdfs dfs -mkdir -p /hivedatas
+hdfs dfs -put techer.csv /hivedatas/
+在hive中执行加载(是个剪切操作)
+load data inpath '/hivedatas/techer.csv' into table teacher;
+
+
+
+分区表
+在大数据中，最常用的一种思想就是分治，我们可以把大的文件切割划分成一个个的小的文件，
+这样每次操作一个小的文件就会很容易了，同样的道理，在hive当中也是支持这种思想的，
+就是我们可以把大的数据，按照每天，或者每小时进行切分成一个个的小的文件，
+这样去操作小的文件就会容易得多了
+创建分区表语法
+/home/hadoop/mw/apache-hive-3.1.0-bin/bin/hive
+create database if not exists myhive;
+use myhive;
+创建一个表带多个分区
+create table score(s_id string,c_id string, s_score int) partitioned by (month string) row format delimited fields terminated by '\t';
+create table score2 (s_id string,c_id string, s_score int) partitioned by (year string,month string,day string) row format delimited fields terminated by '\t';
+
+
+
+加载数据到分区表中(分文件存放,/user/hive/warehouse/myhive.db/score/month=201806)
+load data local inpath '/home/hadoop/software/score.csv' into table score partition (month='201806');
+
+加载数据到多分区表中(分文件存放,那么存放路径为 /user/hive/warehouse/myhive.db/score2/year=2018/month=06/day=01 )
+load data local inpath '/home/hadoop/software/score.csv' into table score2 partition(year='2018',month='06',day='01');
+
+查看分区数据(where 条件后面接 分区名)
+select * from score where month='201806';
+select * from score2 where day='01';
+
+
+多分区表联合查询(使用 union all )
+select * from score where month = '201806' union all select * from score where month = '201806';
+
+查看分区(分文件存放,/user/hive/warehouse/myhive.db/score/month=201806)
+show partitions score;
+
+添加一个分区
+alter table score add partition(month='201805');
+查看是否添加成功
+show partitions score;
+
+删除分区
+alter table score drop partition(month = '201806');
+
+
+分桶表
+将数据按照指定的字段进行分成多个桶中去，说白了就是将数据按照字段进行划分，
+可以将数据按照字段划分到多个文件当中去.
+
+查看 分桶 默认值:
+set hive.enforce.bucketing;
+开启 Hive 的分桶功能
+set hive.enforce.bucketing=true;
+
+设置 Reduce 个数
+set mapreduce.job.reduces=3;
+查看设置是否成功:
+set mapreduce.job.reduces;
+
+创建桶表( clustered分桶字段必须是前面建表存在的字段,会通过hash算法对字段进行分桶)
+create table course (c_id string,c_name string,t_id string) clustered by(c_id) into 3 buckets row format delimited fields terminated by '\t';
+
+桶表的数据加载，由于通标的数据加载通过hdfs dfs -put文件或者通过load data均不好使，只能通过insert overwrite
+(前面两种方式只是数据导入,并没有走mapreduce,分桶需要通过mapreduce对数据根据字段hash值取模进行分桶,故不能直接简单的导入)
+
+分桶表数据导入方式:
+创建普通表，并通过insert overwrite的方式将普通表的数据通过查询的方式加载到桶表当中去
+1.创建相同字段结构,表名不同的普通表
+create table course_common (c_id string,c_name string,t_id string) row format delimited fields terminated by '\t';
+
+2.普通表中加载数据
+load data local inpath '/home/hadoop/software/course.csv' into table course_common;
+
+3.通过查询分桶,再insert overwrite给桶表中加载数据
+insert overwrite table course select * from course_common cluster by(c_id);
+
+最终会在 /user/hive/warehouse/myhive.db/course 中根据c_id生成三个(之前reduc设置的个数)文件
+
+
+
+修改表
+重命名
+基本语法：
+alter table old_table_name rename to new_table_name;
+
+
+把表stu4修改成stu5
+show tables;
+alter table stu4 rename to stu5;
+show tables;
+
+增加/修改列信息
+查询表结构
+desc stu5;
+添加列
+alter table stu5 add columns (mycol string, mysco string);
+查询表结构
+desc stu5;
+更新列
+alter table stu5 change column mycol mysco int;
+
+删除表
+drop table stu5;
+
+
+hive表中加载数据
+直接向分区表中插入数据(一般分析数据来源是外部,不会直接插入)
+create table score3 like score;
+insert into table score3 partition(month ='201807') values ('001','002','100');
+
+通过查询插入数据
+通过load方式加载数据
+load data local inpath '/home/hadoop/software/course.csv' overwrite into table score partition(month='201806');
+通过查询方式加载数据(insert overwrite会走mapreduce)
+create table score4 like score;
+insert overwrite table score4 partition(month = '201806') select s_id,c_id,s_score from score;
+
+
+Hive 查询语法
+2.1. SELECT
+SELECT [ALL | DISTINCT] select_expr, select_expr, ...
+FROM table_reference
+[WHERE where_condition]
+[GROUP BY col_list [HAVING condition]]
+[CLUSTER BY col_list
+| [DISTRIBUTE BY col_list] [SORT BY| ORDER BY col_list]
+][
+LIMIT number]
+1. order by 会对输入做全局排序，因此只有一个reducer(如果存在多个reduce,数据最终输出为多个文件,无法做全局统一排序)，会导致当输入规模较大时，需要较长的计算时间(只有一个reduce,无法利用多台机器资源)。
+2. sort by 不是全局排序，其在数据进入reducer前完成排序。因此，如果用sort by进行排序，并且设置
+mapred.reduce.tasks>1，则sort by只保证每个reducer的输出有序，但是不保证全局有序。
+3. distribute by(字段)根据指定的字段将数据分到不同的reducer，且分发算法是hash散列(hash值取模分布到各个reduce,相当于mapreduce的partition功能)。
+4. Cluster by(字段) 除具有Distribute by的功能外，还会对该字段进行排序。 ---> distribute by + sort by
+因此，如果分桶和sort字段是同一个时，此时， cluster by = distribute by + sort by
+分桶表的作用：最大的作用是用来提高join操作的效率；
+思考这个问题： select a.id,a.name,b.addr from a join b on a.id = b.id;
+如果a表和b表已经是分桶表，而且分桶的字段是id字段 做这个join操作时，不需要全表做笛卡尔积
+(分桶后的id可以精确匹配,不像join连表查询需要将两表数据交叉合并成一张临时表后,再在临时表中进行条件筛选)
+
+查询语法
+全表查询
+select * from score;
+选择特定列
+select s_id ,c_id from score;
+列别名
+1）重命名一个列。
+2）便于计算。
+3）紧跟列名，也可以在列名和别名之间加入关键字‘AS’
+select s_id as myid ,c_id from score;
+
+常用函数
+求总行数（count）
+select count(1) from score;
+求分数的最大值（max）
+select max(s_score) from score;
+求分数的最小值（min）
+select min(s_score) from score;
+求分数的总和（sum）
+select sum(s_score) from score;
+求分数的平均值（avg）
+select avg(s_score) from score;
+
+LIMIT语句
+典型的查询会返回多行数据。LIMIT子句用于限制返回的行数。
+select * from score limit 3;
+
+WHERE语句
+1. 使用WHERE 子句，将不满足条件的行过滤掉。
+2. WHERE 子句紧随 FROM 子句。
+
+操作符 			支持的数据类型 		描述
+A=B 			基本数据类型 		如果A等于B则返回TRUE，反之返回FALSE
+A<=>B 			基本数据类型 		如果A和B都为NULL，则返回TRUE，其他的和等号（=）操作符的结果一致，如果任一为NULL则结果为NULL
+A<>B,A!=B		基本数据类型 		A或者B为NULL则返回NULL；如果A不等于B，则返回TRUE，反之返回FALSE
+A<B 			基本数据类型 		A或者B为NULL，则返回NULL；如果A小于B，则返回TRUE，反之返回FALSE
+A<=B 			基本数据类型 		A或者B为NULL，则返回NULL；如果A小于等于B，则返回TRUE，反之返回FALSE
+A>B 			基本数据类型 		A或者B为NULL，则返回NULL；如果A大于B，则返回TRUE，反之返回FALSE
+A>=B 			基本数据类型 		A或者B为NULL，则返回NULL；如果A大于等于B，则返回TRUE，反之返回FALSE
+A [NOT]
+BETWEEN B AND C	基本数据类型		如果A，B或者C任一为NULL，则结果为NULL。如果A的值大于等于B而且小于或等于C，则结果为TRUE，反之为FALSE。如果使用NOT关键字则可达到相反的效果。
+A IS NULL 		所有数据类型 		如果A等于NULL，则返回TRUE，反之返回FALSE
+A IS NOT NULL	所有数据类型 		如果A不等于NULL，则返回TRUE，反之返回FALSE
+IN(数值1,数值2) 所有数据类型 		使用 IN运算显示列表中的值
+A [NOT]
+LIKE B			STRING 类型			B是一个SQL下的简单正则表达式，如果A与其匹配的话，则返回TRUE；反之返回FALSE。B的表达式说明如下：‘x%’表示A必须以字母‘x’开头，‘%x’表示A必须以字母’x’结尾，而‘%x%’表示A包含有字母’x’,可以位于开头，结尾或者字符串中间。如果使用NOT关键字则可达到相反的效果。
+A RLIKE
+B, A REGEXP B	STRING 类型 		B是一个正则表达式，如果A与其匹配，则返回TRUE；反之返回FALSE。匹配使用的是JDK中的正则表达式接口实现的，因为正则也依据其中的规则。例如，正则表达式必须和整个字符串A相匹配，而不是只需与其字符串匹配。
+
+查询出分数大于60的数据
+select * from score where s_score > 60;
+查询分数等于80的所有的数据
+select * from score where s_score = 80;
+查询分数在80到100的所有数据
+select * from score where s_score between 80 and 100;
+查询成绩为空的所有数据
+select * from score where s_score is null;
+查询成绩是80和90的数据
+select * from score where s_score in(80,90);
+
+
+LIKE 和 RLIKE
+1. 使用LIKE运算选择类似的值
+2. 选择条件可以包含字符或数字:
+% 代表零个或多个字符(任意个字符)。
+_ 代表一个字符。
+
+3. RLIKE子句是Hive中这个功能的一个扩展，其可以通过Java的正则表达式这个更强大的语言来指定匹配条件。
+
+1. 查找以8开头的所有成绩
+select * from score where s_score like '8%';
+2. 查找第二个数值为9的所有成绩数据
+select * from score where s_score like '_9%';
+3. 查询课程编号中包含1的数据(类似 %1%)
+select * from score where c_id rlike '[1]';
+
+
+逻辑运算符
+AND 	逻辑并
+OR 		逻辑或
+NOT 	逻辑否
+
+/home/hadoop/mw/apache-hive-3.1.0-bin/bin/hive
+show databases;
+use myhive;
+
+查询成绩大于80，并且s_id是01的数据
+select * from score where s_score >80 and s_id = '01';
+查询成绩大于80，或者s_id 是01的数
+select * from score where s_score > 80 or s_id = '01';
+查询s_id 不是 01和02的学生
+select * from score where s_id not in ('01','02');
+
+分组(会走mapreduce)
+GROUP BY 语句
+
+计算每个学生的平均分数
+select s_id ,avg(s_score) from score group by s_id;
+
+计算每个学生最高成绩
+select s_id ,max(s_score) from score group by s_id;
+
+
+HAVING 语句
+1. having与where不同点
+1. where针对表中的列发挥作用，查询数据；having针对查询结果中的列发挥作用，筛选数据。
+2. where后面不能写分组函数，而having后面可以使用分组函数。
+3. having只用于group by分组统计语句。
+2. 案例实操：
+求每个学生的平均分数
+select s_id ,avg(s_score) from score group by s_id;
+求每个学生平均分数大于85的人
+select s_id ,avg(s_score) avgscore from score group by s_id having avgscore > 85;
+
+
+JOIN 语句
+2.9.1. 等值 JOIN
+Hive支持通常的SQL JOIN语句，但是只支持等值连接，不支持非等值连接。
+
+查询分数对应的姓名
+SELECT s.s_id,s.s_score,stu.s_name,stu.s_birth FROM score s LEFT JOIN student stu ON s.s_id = stu.s_id;
+
+2.9.2. 表的别名
+好处:
+使用别名可以简化查询。
+使用表名前缀可以提高执行效率。
+
+合并老师与课程表
+select * from teacher t join course c on t.t_id = c.t_id;
+
+2.9.3. 内连接
+内连接：只有进行连接的两个表中都存在与连接条件相匹配的数据才会被保留下来。
+select * from teacher t inner join course c on t.t_id = c.t_id;
+
+2.9.4. 左外连接
+左外连接：JOIN操作符左边表中符合WHERE子句的所有记录将会被返回。
+查询老师对应的课程:
+select * from teacher t left join course c on t.t_id = c.t_id;
+
+2.9.5. 右外连接
+右外连接：JOIN操作符右边表中符合WHERE子句的所有记录将会被返回。
+select * from teacher t right join course c on t.t_id = c.t_id;
+
+2.9.6. 多表连接
+注意：连接 n个表，至少需要n-1个连接条件。例如：连接三个表，至少需要两个连接条件。
+多表连接查询，查询老师对应的课程，以及对应的分数，对应的学生
+select * from teacher t
+left join course c
+on t.t_id = c.t_id
+left join score s
+on s.c_id = c.c_id
+left join student stu
+on s.s_id = stu.s_id;
+大多数情况下，Hive会对每对JOIN连接对象启动一个MapReduce任务。本例中会首先启动一个MapReduce job对表
+techer和表course进行连接操作，然后会再启动一个MapReduce job将第一个MapReduce job的输出和表score;进行连
+接操作。
+
+2.9. 排序
+2.9.1. 全局排序
+Order By：全局排序，一个reduce
+
+1. 使用 ORDER BY 子句排序
+ASC（ascend）: 升序（默认）
+DESC（descend）: 降序
+
+2. ORDER BY 子句在SELECT语句的结尾。
+
+查询学生的成绩，并按照分数降序排序
+SELECT * FROM student s LEFT JOIN score sco ON s.s_id = sco.s_id ORDER BY sco.s_score DESC;
+查询学生的成绩，并按照分数升序排序
+SELECT * FROM student s LEFT JOIN score sco ON s.s_id = sco.s_id ORDER BY sco.s_score asc;
+
+2.9.2. 按照别名排序
+按照分数的平均值排序
+select s_id ,avg(s_score) avg from score group by s_id order by avg;
+
+2.9.3. 多个列排序
+按照学生id和平均成绩进行排序
+select s_id ,avg(s_score) avg from score group by s_id order by s_id,avg;
+
+2.9.4. 每个MapReduce内部排序（Sort By）局部排序
+Sort By：每个MapReduce内部进行排序，对全局结果集来说不是排序。
+1. 设置reduce个数
+set mapreduce.job.reduces=3;
+2. 查看设置reduce个数
+set mapreduce.job.reduces;
+3. 查询成绩按照成绩降序排列
+select * from score sort by s_score;
+4. 将查询结果导入到文件中（按照成绩降序排列）
+insert overwrite local directory '/home/hadoop/software/sort' select * from score sort by s_score;
+
+2.9.5. 分区排序（DISTRIBUTE BY）
+Distribute By：类似MR中partition，进行分区，结合sort by使用。
+注意，Hive要求DISTRIBUTE BY语句要写在SORT BY语句之前。
+对于distribute by进行测试，一定要分配多reduce进行处理，否则无法看到distribute by的效果。
+
+先按照学生id进行分区，再按照学生成绩进行排序。
+1. 设置reduce的个数，将我们对应的s_id划分到对应的reduce当中去
+set mapreduce.job.reduces=7;
+查看设置reduce个数
+set mapreduce.job.reduces;
+2. 通过distribute by 进行数据的分区
+insert overwrite local directory '/home/hadoop/software/sort' select * from score distribute by s_id sort by s_score;
+
+2.9.6. CLUSTER BY
+当distribute by和sort by字段相同时，可以使用cluster by方式。
+cluster by除了具有distribute by的功能外还兼具sort by的功能。
+但是排序只能是倒序排序，不能指定排序规则为ASC或者DESC。
+以下两种写法等价
+select * from score cluster by s_id;
+select * from score distribute by s_id sort by s_id;
+
+3. Hive 函数
+3.1. 内置函数
+内容较多，见《Hive官方文档》
+https://cwiki.apache.org/confluence/display/Hive/LanguageManual+UDF
+
+1. 查看系统自带的函数
+show functions;
+
+2. 显示自带的函数的用法
+desc function upper;
+
+3. 详细显示自带的函数的用法
+desc function extended upper;
+例: SELECT upper('Facebook');
+
+4:常用内置函数
+# 字符串连接函数： concat
+select concat('hello', ' world', ' hive');
+
+OK
+hello world hive
+Time taken: 0.226 seconds, Fetched: 1 row(s)
+
+# 带分隔符字符串连接函数： concat_ws
+select concat_ws(',','hello','world','hive');
+
+OK
+hello,world,hive
+Time taken: 0.193 seconds, Fetched: 1 row(s)
+
+# cast类型转换
+select cast(1.5 as int);
+
+OK
+1
+Time taken: 0.303 seconds, Fetched: 1 row(s)
+
+# get_json_object(json 解析函数，用来处理json，必须是json格式)
+select get_json_object('{"name":"jack","age":"20"}','$.name');
+select get_json_object('{"name":"jack","age":"20"}','$.age');
+
+OK
+jack
+Time taken: 0.255 seconds, Fetched: 1 row(s)
+
+# URL解析函数
+select parse_url('http://facebook.com/path1/p.php?k1=v1&key2=v2#Ref1', 'HOST');
+select parse_url('http://facebook.com/path1/p.php?k1=v1&key2=v2#Ref1', 'PATH');
+select parse_url('http://facebook.com/path1/p.php?k1=v1&key2=v2#Ref1', 'QUERY');
+select parse_url('http://facebook.com/path1/p.php?k1=v1&key2=v2#Ref1', 'QUERY', 'k1');
+select parse_url('http://facebook.com/path1/p.php?k1=v1&key2=v2#Ref1', 'QUERY', 'key2');
+
+OK
+facebook.com
+Time taken: 0.162 seconds, Fetched: 1 row(s)
+
+# explode：把map集合中每个键值对或数组中的每个元素都单独生成一行的形式
+
+
+3.2. 自定义函数
+1. Hive 自带的一些函数，比如：max/min等，但是数量有限，自己可以通过自定义UDF来方式的扩展。
+2. 当Hive提供的内置函数无法满足你的业务处理需要时，此时就可以考虑使用用户自定义函数（UDF：user-defined function）。
+3. 根据用户自定义函数类别分为以下三种:
+1. UDF（User-Defined-Function）
+	一进一出
+2. UDAF（User-Defined Aggregation Function）
+	聚集函数，多进一出
+类似于： count / max / min
+3. UDTF（User-Defined Table-Generating Functions）
+	一进多出
+	如 lateral view explore()
+4. 官方文档地址 https://cwiki.apache.org/confluence/display/Hive/HivePlugins
+5. 编程步骤：
+	1. 继承org.apache.hadoop.hive.ql.UDF
+	2. 需要实现evaluate函数；evaluate函数支持重载；
+6. 注意事项
+	1. UDF必须要有返回类型，可以返回null，但是返回类型不能为void；
+	2. UDF中常用Text/LongWritable等类型，不推荐使用java类型；
+
+
+
+UDF 开发
+3.3.1. Step 1 创建 Maven 工程
+<dependencies>
+	<!-- https://mvnrepository.com/artifact/org.apache.hive/hive-exec -->
+	<dependency>
+		<groupId>org.apache.hive</groupId>
+		<artifactId>hive-exec</artifactId>
+		<version>3.1.1</version>
+	</dependency>
+	<!-- https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-common -->
+	<dependency>
+		<groupId>org.apache.hadoop</groupId>
+		<artifactId>hadoop-common</artifactId>
+		<version>3.1.1</version>
+	</dependency>
+</dependencies>
+<build>
+	<!-- 指定最终打包的包名 -->
+    <finalName>myudf</finalName>
+	<plugins>
+		<plugin>
+			<groupId>org.apache.maven.plugins</groupId>
+			<artifactId>maven-compiler-plugin</artifactId>
+			<version>3.0</version>
+			<configuration>
+			<source>1.8</source>
+			<target>1.8</target>
+			<encoding>UTF-8</encoding>
+			</configuration>
+		</plugin>
+	</plugins>
+</build>
+
+继成UDF
+import org.apache.hadoop.hive.ql.exec.UDF;
+import org.apache.hadoop.io.Text;
+
+/**
+ * @author gin
+ * @date 2020/2/24 19:21
+ */
+public class MyUDF extends UDF {
+
+    public Text evaluate(final Text str){
+        //将输入字符串的第一个字母大写
+        if(str != null && !"".equals(str.toString())){
+            String tmpStr = str.toString();
+            String retStr = tmpStr.substring(0, 1).toUpperCase() + tmpStr.substring(1);
+            return new Text(retStr);
+        }
+        return new Text("");
+    }
+}
+
+打包成jar包,并上传至hive安装目录中的lib目录:
+cd /home/hadoop/mw/apache-hive-3.1.0-bin/lib
+
+进入hive的客户端添加我们的jar包
+/home/hadoop/mw/apache-hive-3.1.0-bin/bin/hive
+add jar /home/hadoop/mw/apache-hive-3.1.0-bin/lib/myudf.jar;
+
+设置函数与我们的自定义函数类名进行关联
+create temporary function my_upper as 'com.gin.udf.MyUDF';
+
+使用自定义函数
+select my_upper('hello udf');
+
+
+
+
+
+
+
+
+
+

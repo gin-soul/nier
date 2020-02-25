@@ -1346,13 +1346,16 @@ use myhive;
 create table stu(id int,name string);
 -- 尽量避免在hive中进行数据插入或修改,会启动mapreduce,比较消耗资源,主要应在hive进行数据分析)
 insert into stu values (1,"zhangsan");
+insert into stu values (2,"nier");
+insert into stu values (3,"luffy");
+
 select * from stu;
 
 
 创建表并指定字段之间的分隔符
 create table if not exists stu2(id int ,name string) row format delimited fields terminated by '\t';
-insert into stu2 values (2,"nier");
-insert into stu2 values (3,"luffy");
+insert into stu2 values (4,"gin");
+insert into stu2 values (5,"naruto");
 select * from stu2;
 
 根据查询结果创建表
@@ -1416,39 +1419,666 @@ load data local inpath '/home/hadoop/software/score.csv' into table score partit
 加载数据到多分区表中(分文件存放,那么存放路径为 /user/hive/warehouse/myhive.db/score2/year=2018/month=06/day=01 )
 load data local inpath '/home/hadoop/software/score.csv' into table score2 partition(year='2018',month='06',day='01');
 
+查看分区数据(where 条件后面接 分区名)
+select * from score where month='201806';
+select * from score2 where day='01';
+
+
 多分区表联合查询(使用 union all )
 select * from score where month = '201806' union all select * from score where month = '201806';
-查看分区
+
+查看分区(分文件存放,/user/hive/warehouse/myhive.db/score/month=201806)
 show partitions score;
+
 添加一个分区
 alter table score add partition(month='201805');
+查看是否添加成功
+show partitions score;
+
 删除分区
 alter table score drop partition(month = '201806');
 
 
+分桶表
+将数据按照指定的字段进行分成多个桶中去，说白了就是将数据按照字段进行划分，
+可以将数据按照字段划分到多个文件当中去.
+
+查看 分桶 默认值:
+set hive.enforce.bucketing;
+开启 Hive 的分桶功能
+set hive.enforce.bucketing=true;
+
+设置 Reduce 个数
+set mapreduce.job.reduces=3;
+查看设置是否成功:
+set mapreduce.job.reduces;
+
+创建桶表( clustered分桶字段必须是前面建表存在的字段,会通过hash算法对字段进行分桶)
+create table course (c_id string,c_name string,t_id string) clustered by(c_id) into 3 buckets row format delimited fields terminated by '\t';
+
+桶表的数据加载，由于通标的数据加载通过hdfs dfs -put文件或者通过load data均不好使，只能通过insert overwrite
+(前面两种方式只是数据导入,并没有走mapreduce,分桶需要通过mapreduce对数据根据字段hash值取模进行分桶,故不能直接简单的导入)
+
+分桶表数据导入方式:
+创建普通表，并通过insert overwrite的方式将普通表的数据通过查询的方式加载到桶表当中去
+1.创建相同字段结构,表名不同的普通表
+create table course_common (c_id string,c_name string,t_id string) row format delimited fields terminated by '\t';
+
+2.普通表中加载数据
+load data local inpath '/home/hadoop/software/course.csv' into table course_common;
+
+3.通过查询分桶,再insert overwrite给桶表中加载数据
+insert overwrite table course select * from course_common cluster by(c_id);
+
+最终会在 /user/hive/warehouse/myhive.db/course 中根据c_id生成三个(之前reduc设置的个数)文件
+
+
+
+修改表
+重命名
+基本语法：
+alter table old_table_name rename to new_table_name;
+
+
+把表stu4修改成stu5
+show tables;
+alter table stu4 rename to stu5;
+show tables;
+
+增加/修改列信息
+查询表结构
+desc stu5;
+添加列
+alter table stu5 add columns (mycol string, mysco string);
+查询表结构
+desc stu5;
+更新列
+alter table stu5 change column mycol mysco int;
+
+删除表
+drop table stu5;
+
+
+hive表中加载数据
+直接向分区表中插入数据(一般分析数据来源是外部,不会直接插入)
+create table score3 like score;
+insert into table score3 partition(month ='201807') values ('001','002','100');
+
+通过查询插入数据
+通过load方式加载数据
+load data local inpath '/home/hadoop/software/course.csv' overwrite into table score partition(month='201806');
+通过查询方式加载数据(insert overwrite会走mapreduce)
+create table score4 like score;
+insert overwrite table score4 partition(month = '201806') select s_id,c_id,s_score from score;
+
+
+Hive 查询语法
+2.1. SELECT
+SELECT [ALL | DISTINCT] select_expr, select_expr, ...
+FROM table_reference
+[WHERE where_condition]
+[GROUP BY col_list [HAVING condition]]
+[CLUSTER BY col_list
+| [DISTRIBUTE BY col_list] [SORT BY| ORDER BY col_list]
+][
+LIMIT number]
+1. order by 会对输入做全局排序，因此只有一个reducer(如果存在多个reduce,数据最终输出为多个文件,无法做全局统一排序)，会导致当输入规模较大时，需要较长的计算时间(只有一个reduce,无法利用多台机器资源)。
+2. sort by 不是全局排序，其在数据进入reducer前完成排序。因此，如果用sort by进行排序，并且设置
+mapred.reduce.tasks>1，则sort by只保证每个reducer的输出有序，但是不保证全局有序。
+3. distribute by(字段)根据指定的字段将数据分到不同的reducer，且分发算法是hash散列(hash值取模分布到各个reduce,相当于mapreduce的partition功能)。
+4. Cluster by(字段) 除具有Distribute by的功能外，还会对该字段进行排序。 ---> distribute by + sort by
+因此，如果分桶和sort字段是同一个时，此时， cluster by = distribute by + sort by
+分桶表的作用：最大的作用是用来提高join操作的效率；
+思考这个问题： select a.id,a.name,b.addr from a join b on a.id = b.id;
+如果a表和b表已经是分桶表，而且分桶的字段是id字段 做这个join操作时，不需要全表做笛卡尔积
+(分桶后的id可以精确匹配,不像join连表查询需要将两表数据交叉合并成一张临时表后,再在临时表中进行条件筛选)
+
+查询语法
+全表查询
+select * from score;
+选择特定列
+select s_id ,c_id from score;
+列别名
+1）重命名一个列。
+2）便于计算。
+3）紧跟列名，也可以在列名和别名之间加入关键字‘AS’
+select s_id as myid ,c_id from score;
+
+常用函数
+求总行数（count）
+select count(1) from score;
+求分数的最大值（max）
+select max(s_score) from score;
+求分数的最小值（min）
+select min(s_score) from score;
+求分数的总和（sum）
+select sum(s_score) from score;
+求分数的平均值（avg）
+select avg(s_score) from score;
+
+LIMIT语句
+典型的查询会返回多行数据。LIMIT子句用于限制返回的行数。
+select * from score limit 3;
+
+WHERE语句
+1. 使用WHERE 子句，将不满足条件的行过滤掉。
+2. WHERE 子句紧随 FROM 子句。
+
+操作符 			支持的数据类型 		描述
+A=B 			基本数据类型 		如果A等于B则返回TRUE，反之返回FALSE
+A<=>B 			基本数据类型 		如果A和B都为NULL，则返回TRUE，其他的和等号（=）操作符的结果一致，如果任一为NULL则结果为NULL
+A<>B,A!=B		基本数据类型 		A或者B为NULL则返回NULL；如果A不等于B，则返回TRUE，反之返回FALSE
+A<B 			基本数据类型 		A或者B为NULL，则返回NULL；如果A小于B，则返回TRUE，反之返回FALSE
+A<=B 			基本数据类型 		A或者B为NULL，则返回NULL；如果A小于等于B，则返回TRUE，反之返回FALSE
+A>B 			基本数据类型 		A或者B为NULL，则返回NULL；如果A大于B，则返回TRUE，反之返回FALSE
+A>=B 			基本数据类型 		A或者B为NULL，则返回NULL；如果A大于等于B，则返回TRUE，反之返回FALSE
+A [NOT]
+BETWEEN B AND C	基本数据类型		如果A，B或者C任一为NULL，则结果为NULL。如果A的值大于等于B而且小于或等于C，则结果为TRUE，反之为FALSE。如果使用NOT关键字则可达到相反的效果。
+A IS NULL 		所有数据类型 		如果A等于NULL，则返回TRUE，反之返回FALSE
+A IS NOT NULL	所有数据类型 		如果A不等于NULL，则返回TRUE，反之返回FALSE
+IN(数值1,数值2) 所有数据类型 		使用 IN运算显示列表中的值
+A [NOT]
+LIKE B			STRING 类型			B是一个SQL下的简单正则表达式，如果A与其匹配的话，则返回TRUE；反之返回FALSE。B的表达式说明如下：‘x%’表示A必须以字母‘x’开头，‘%x’表示A必须以字母’x’结尾，而‘%x%’表示A包含有字母’x’,可以位于开头，结尾或者字符串中间。如果使用NOT关键字则可达到相反的效果。
+A RLIKE
+B, A REGEXP B	STRING 类型 		B是一个正则表达式，如果A与其匹配，则返回TRUE；反之返回FALSE。匹配使用的是JDK中的正则表达式接口实现的，因为正则也依据其中的规则。例如，正则表达式必须和整个字符串A相匹配，而不是只需与其字符串匹配。
+
+查询出分数大于60的数据
+select * from score where s_score > 60;
+查询分数等于80的所有的数据
+select * from score where s_score = 80;
+查询分数在80到100的所有数据
+select * from score where s_score between 80 and 100;
+查询成绩为空的所有数据
+select * from score where s_score is null;
+查询成绩是80和90的数据
+select * from score where s_score in(80,90);
+
+
+LIKE 和 RLIKE
+1. 使用LIKE运算选择类似的值
+2. 选择条件可以包含字符或数字:
+% 代表零个或多个字符(任意个字符)。
+_ 代表一个字符。
+
+3. RLIKE子句是Hive中这个功能的一个扩展，其可以通过Java的正则表达式这个更强大的语言来指定匹配条件。
+
+1. 查找以8开头的所有成绩
+select * from score where s_score like '8%';
+2. 查找第二个数值为9的所有成绩数据
+select * from score where s_score like '_9%';
+3. 查询课程编号中包含1的数据(类似 %1%)
+select * from score where c_id rlike '[1]';
+
+
+逻辑运算符
+AND 	逻辑并
+OR 		逻辑或
+NOT 	逻辑否
+
+/home/hadoop/mw/apache-hive-3.1.0-bin/bin/hive
+show databases;
+use myhive;
+
+查询成绩大于80，并且s_id是01的数据
+select * from score where s_score >80 and s_id = '01';
+查询成绩大于80，或者s_id 是01的数
+select * from score where s_score > 80 or s_id = '01';
+查询s_id 不是 01和02的学生
+select * from score where s_id not in ('01','02');
+
+分组(会走mapreduce)
+GROUP BY 语句
+
+计算每个学生的平均分数
+select s_id ,avg(s_score) from score group by s_id;
+
+计算每个学生最高成绩
+select s_id ,max(s_score) from score group by s_id;
+
+
+HAVING 语句
+1. having与where不同点
+1. where针对表中的列发挥作用，查询数据；having针对查询结果中的列发挥作用，筛选数据。
+2. where后面不能写分组函数，而having后面可以使用分组函数。
+3. having只用于group by分组统计语句。
+2. 案例实操：
+求每个学生的平均分数
+select s_id ,avg(s_score) from score group by s_id;
+求每个学生平均分数大于85的人
+select s_id ,avg(s_score) avgscore from score group by s_id having avgscore > 85;
+
+
+JOIN 语句
+2.9.1. 等值 JOIN
+Hive支持通常的SQL JOIN语句，但是只支持等值连接，不支持非等值连接。
+
+查询分数对应的姓名
+SELECT s.s_id,s.s_score,stu.s_name,stu.s_birth FROM score s LEFT JOIN student stu ON s.s_id = stu.s_id;
+
+2.9.2. 表的别名
+好处:
+使用别名可以简化查询。
+使用表名前缀可以提高执行效率。
+
+合并老师与课程表
+select * from teacher t join course c on t.t_id = c.t_id;
+
+2.9.3. 内连接
+内连接：只有进行连接的两个表中都存在与连接条件相匹配的数据才会被保留下来。
+select * from teacher t inner join course c on t.t_id = c.t_id;
+
+2.9.4. 左外连接
+左外连接：JOIN操作符左边表中符合WHERE子句的所有记录将会被返回。
+查询老师对应的课程:
+select * from teacher t left join course c on t.t_id = c.t_id;
+
+2.9.5. 右外连接
+右外连接：JOIN操作符右边表中符合WHERE子句的所有记录将会被返回。
+select * from teacher t right join course c on t.t_id = c.t_id;
+
+2.9.6. 多表连接
+注意：连接 n个表，至少需要n-1个连接条件。例如：连接三个表，至少需要两个连接条件。
+多表连接查询，查询老师对应的课程，以及对应的分数，对应的学生
+select * from teacher t
+left join course c
+on t.t_id = c.t_id
+left join score s
+on s.c_id = c.c_id
+left join student stu
+on s.s_id = stu.s_id;
+大多数情况下，Hive会对每对JOIN连接对象启动一个MapReduce任务。本例中会首先启动一个MapReduce job对表
+techer和表course进行连接操作，然后会再启动一个MapReduce job将第一个MapReduce job的输出和表score;进行连
+接操作。
+
+2.9. 排序
+2.9.1. 全局排序
+Order By：全局排序，一个reduce
+
+1. 使用 ORDER BY 子句排序
+ASC（ascend）: 升序（默认）
+DESC（descend）: 降序
+
+2. ORDER BY 子句在SELECT语句的结尾。
+
+查询学生的成绩，并按照分数降序排序
+SELECT * FROM student s LEFT JOIN score sco ON s.s_id = sco.s_id ORDER BY sco.s_score DESC;
+查询学生的成绩，并按照分数升序排序
+SELECT * FROM student s LEFT JOIN score sco ON s.s_id = sco.s_id ORDER BY sco.s_score asc;
+
+2.9.2. 按照别名排序
+按照分数的平均值排序
+select s_id ,avg(s_score) avg from score group by s_id order by avg;
+
+2.9.3. 多个列排序
+按照学生id和平均成绩进行排序
+select s_id ,avg(s_score) avg from score group by s_id order by s_id,avg;
+
+2.9.4. 每个MapReduce内部排序（Sort By）局部排序
+Sort By：每个MapReduce内部进行排序，对全局结果集来说不是排序。
+1. 设置reduce个数
+set mapreduce.job.reduces=3;
+2. 查看设置reduce个数
+set mapreduce.job.reduces;
+3. 查询成绩按照成绩降序排列
+select * from score sort by s_score;
+4. 将查询结果导入到文件中（按照成绩降序排列）
+insert overwrite local directory '/home/hadoop/software/sort' select * from score sort by s_score;
+
+2.9.5. 分区排序（DISTRIBUTE BY）
+Distribute By：类似MR中partition，进行分区，结合sort by使用。
+注意，Hive要求DISTRIBUTE BY语句要写在SORT BY语句之前。
+对于distribute by进行测试，一定要分配多reduce进行处理，否则无法看到distribute by的效果。
+
+先按照学生id进行分区，再按照学生成绩进行排序。
+1. 设置reduce的个数，将我们对应的s_id划分到对应的reduce当中去
+set mapreduce.job.reduces=7;
+查看设置reduce个数
+set mapreduce.job.reduces;
+2. 通过distribute by 进行数据的分区
+insert overwrite local directory '/home/hadoop/software/sort' select * from score distribute by s_id sort by s_score;
+
+2.9.6. CLUSTER BY
+当distribute by和sort by字段相同时，可以使用cluster by方式。
+cluster by除了具有distribute by的功能外还兼具sort by的功能。
+但是排序只能是倒序排序，不能指定排序规则为ASC或者DESC。
+以下两种写法等价
+select * from score cluster by s_id;
+select * from score distribute by s_id sort by s_id;
+
+3. Hive 函数
+3.1. 内置函数
+内容较多，见《Hive官方文档》
+https://cwiki.apache.org/confluence/display/Hive/LanguageManual+UDF
+
+1. 查看系统自带的函数
+show functions;
+
+2. 显示自带的函数的用法
+desc function upper;
+
+3. 详细显示自带的函数的用法
+desc function extended upper;
+例: SELECT upper('Facebook');
+
+4:常用内置函数
+# 字符串连接函数： concat
+select concat('hello', ' world', ' hive');
+
+OK
+hello world hive
+Time taken: 0.226 seconds, Fetched: 1 row(s)
+
+# 带分隔符字符串连接函数： concat_ws
+select concat_ws(',','hello','world','hive');
+
+OK
+hello,world,hive
+Time taken: 0.193 seconds, Fetched: 1 row(s)
+
+# cast类型转换
+select cast(1.5 as int);
+
+OK
+1
+Time taken: 0.303 seconds, Fetched: 1 row(s)
+
+# get_json_object(json 解析函数，用来处理json，必须是json格式)
+select get_json_object('{"name":"jack","age":"20"}','$.name');
+select get_json_object('{"name":"jack","age":"20"}','$.age');
+
+OK
+jack
+Time taken: 0.255 seconds, Fetched: 1 row(s)
+
+# URL解析函数
+select parse_url('http://facebook.com/path1/p.php?k1=v1&key2=v2#Ref1', 'HOST');
+select parse_url('http://facebook.com/path1/p.php?k1=v1&key2=v2#Ref1', 'PATH');
+select parse_url('http://facebook.com/path1/p.php?k1=v1&key2=v2#Ref1', 'QUERY');
+select parse_url('http://facebook.com/path1/p.php?k1=v1&key2=v2#Ref1', 'QUERY', 'k1');
+select parse_url('http://facebook.com/path1/p.php?k1=v1&key2=v2#Ref1', 'QUERY', 'key2');
+
+OK
+facebook.com
+Time taken: 0.162 seconds, Fetched: 1 row(s)
+
+# explode：把map集合中每个键值对或数组中的每个元素都单独生成一行的形式
+
+
+3.2. 自定义函数
+1. Hive 自带的一些函数，比如：max/min等，但是数量有限，自己可以通过自定义UDF来方式的扩展。
+2. 当Hive提供的内置函数无法满足你的业务处理需要时，此时就可以考虑使用用户自定义函数（UDF：user-defined function）。
+3. 根据用户自定义函数类别分为以下三种:
+1. UDF（User-Defined-Function）
+	一进一出
+2. UDAF（User-Defined Aggregation Function）
+	聚集函数，多进一出
+类似于： count / max / min
+3. UDTF（User-Defined Table-Generating Functions）
+	一进多出
+	如 lateral view explore()
+4. 官方文档地址 https://cwiki.apache.org/confluence/display/Hive/HivePlugins
+5. 编程步骤：
+	1. 继承org.apache.hadoop.hive.ql.UDF
+	2. 需要实现evaluate函数；evaluate函数支持重载；
+6. 注意事项
+	1. UDF必须要有返回类型，可以返回null，但是返回类型不能为void；
+	2. UDF中常用Text/LongWritable等类型，不推荐使用java类型；
+
+
+
+UDF 开发
+3.3.1. Step 1 创建 Maven 工程
+<dependencies>
+	<!-- https://mvnrepository.com/artifact/org.apache.hive/hive-exec -->
+	<dependency>
+		<groupId>org.apache.hive</groupId>
+		<artifactId>hive-exec</artifactId>
+		<version>3.1.1</version>
+	</dependency>
+	<!-- https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-common -->
+	<dependency>
+		<groupId>org.apache.hadoop</groupId>
+		<artifactId>hadoop-common</artifactId>
+		<version>3.1.1</version>
+	</dependency>
+</dependencies>
+<build>
+	<!-- 指定最终打包的包名 -->
+    <finalName>myudf</finalName>
+	<plugins>
+		<plugin>
+			<groupId>org.apache.maven.plugins</groupId>
+			<artifactId>maven-compiler-plugin</artifactId>
+			<version>3.0</version>
+			<configuration>
+			<source>1.8</source>
+			<target>1.8</target>
+			<encoding>UTF-8</encoding>
+			</configuration>
+		</plugin>
+	</plugins>
+</build>
+
+继成UDF
+import org.apache.hadoop.hive.ql.exec.UDF;
+import org.apache.hadoop.io.Text;
+
+/**
+ * @author gin
+ * @date 2020/2/24 19:21
+ */
+public class MyUDF extends UDF {
+
+    public Text evaluate(final Text str){
+        //将输入字符串的第一个字母大写
+        if(str != null && !"".equals(str.toString())){
+            String tmpStr = str.toString();
+            String retStr = tmpStr.substring(0, 1).toUpperCase() + tmpStr.substring(1);
+            return new Text(retStr);
+        }
+        return new Text("");
+    }
+}
+
+打包成jar包,并上传至hive安装目录中的lib目录:
+cd /home/hadoop/mw/apache-hive-3.1.0-bin/lib
+
+进入hive的客户端添加我们的jar包
+/home/hadoop/mw/apache-hive-3.1.0-bin/bin/hive
+add jar /home/hadoop/mw/apache-hive-3.1.0-bin/lib/myudf.jar;
+
+设置函数与我们的自定义函数类名进行关联
+create temporary function my_upper as 'com.gin.udf.MyUDF';
+
+使用自定义函数
+select my_upper('hello udf');
 
 
 
 
 
 
+Flume分布式系统中最核心的角色是agent，flume采集系统就是由一个个agent所连接起来形成
+每一个agent相当于一个数据传递员，内部有三个组件：
+1. Source：采集组件，用于跟数据源对接，以获取数据
+2. Sink：下沉组件，用于往下一级agent传递数据或者往最终存储系统传递数据
+3. Channel：传输通道组件，用于从source将数据传递到sink
+
+
+Flume 的安装部署
+下载解压修改配置文件:
+http://archive.apache.org/dist/flume/1.8.0/apache-flume-1.8.0-bin.tar.gz
+
+Flume的安装非常简单，只需要解压即可，前提是已有hadoop环境
+上传安装包到数据源所在节点上:
+cd /home/hadoop/software/
+tar -zxvf apache-flume-1.8.0-bin.tar.gz -C ../mw/
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/conf
+cp flume-env.sh.template flume-env.sh
+vim flume-env.sh
+
+搜索 export JAVA_HOME 并打开注释:
+export JAVA_HOME=/home/hadoop/mw/jdk1.8.0_141
+
+
+
+测试案例1:
+开发配置文件
+根据数据采集的需求配置采集方案，描述在配置文件中(文件名可任意自定义)
+配置我们的网络收集的配置文件
+在flume的conf目录下新建一个配置文件（采集方案）
+
+vim /home/hadoop/mw/apache-flume-1.8.0-bin/conf/my-netcat-logger.conf
+# 定义这个agent中各组件的名字(a1是agent的名字,可自定义; 并分别对sources,sinks,channels都取了名字(别名))
+a1.sources = r1
+a1.sinks = k1
+a1.channels = c1
+# 描述和配置source组件: r1
+# (netcat是表示数据来源于网络套接字,type类型可查看官方文档;bind,port 表示绑定哪台主机(ip:port)来处理数据源,这里绑定集群第一台服务器)
+a1.sources.r1.type = netcat
+a1.sources.r1.bind = 192.168.25.110
+a1.sources.r1.port = 44444
+# 描述和配置sink组件: k1 (logger表示最终存储在日志系统)
+a1.sinks.k1.type = logger
+# 描述和配置channel组件, 此处使用是内存缓存的方式( memory表示内存暂存,capacity表示一次存储1000单位, transactionCapacity表示一次处理100单位)
+a1.channels.c1.type = memory
+# 队列大小
+a1.channels.c1.capacity = 1000
+# 一次向sinks传输的数据数量
+a1.channels.c1.transactionCapacity = 100
+# 描述和配置source channel sink之间的连接关系(这里表示sources和sinks均使用c1这个channel)
+a1.sources.r1.channels = c1
+a1.sinks.k1.channel = c1
+
+启动配置文件
+指定采集方案配置文件，在相应的节点上启动flume agent
+先用一个最简单的例子来测试一下程序环境是否正常
+启动agent去采集数据
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/
+bin/flume-ng agent -c conf -f conf/my-netcat-logger.conf -n a1 -Dflume.root.logger=INFO,console
+
+-c conf 指定flume自身的配置文件所在目录
+-f conf/my-netcat-logger.conf 指定我们所描述的采集方案
+-n a1 指定我们这个agent的名字(这也是 my-netcat-logger.conf 中定义的agent的名字)
+INFO,console 表示INFO级别,并在控制台输出
+
+安装 Telnet 准备测试
+在node02机器上面安装telnet客户端，用于模拟数据的发送
+yum -y install telnet
+# 使用telnet模拟数据发送
+telnet node01 44444
+
+显示连接成功:
+Trying 192.168.25.110...
+Connected to node01.
+Escape character is '^]'.
+
+尝试输入数据:
+hello flume
+OK
 
 
 
 
 
+测试案例2:
+某服务器的某特定目录下，会不断产生新的文件，每当有新文件出现，就需要把文件采集到HDFS中去
+思路
+根据需求，首先定义以下3大要素
+1. 数据源组件，即source ——监控文件目录 : spooldir
+1. 监视一个目录，只要目录中出现新文件，就会采集文件中的内容
+2. 采集完成的文件，会被agent自动添加一个后缀：COMPLETED
+3. 所监视的目录中不允许重复出现相同文件名的文件
+2. 下沉组件，即sink——HDFS文件系统 : hdfs sink
+3. 通道组件，即channel——可用file channel 也可以用内存channel
+
+Step 1: Flume 配置文件
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/conf/
+# 创建存储文件的目录,以便sources监听
+mkdir -p /home/hadoop/mw/dirfile
 
 
+vim spooldir.conf
+
+# Name the components on this agent
+a1.sources = r1
+a1.sinks = k1
+a1.channels = c1
+
+# Describe/configure the source
+##注意：不能往监控目中重复丢同名文件
+a1.sources.r1.type = spooldir
+a1.sources.r1.spoolDir = /home/hadoop/mw/dirfile
+a1.sources.r1.fileHeader = true
+
+# Use a channel which buffers events in memory
+a1.channels.c1.type = memory
+# 默认该通道中最大的可以存储的event数量
+a1.channels.c1.capacity = 1000
+# 每次最大可以从source中拿到或者送到sink中的event数量
+a1.channels.c1.transactionCapacity = 100
+
+# Describe the sink
+# hdfs表示sinks以hdfs分布式文件系统存储
+a1.sinks.k1.type = hdfs
+# 表示hdfs的存储路径(格式是/年-月-日/时-分 两级目录)
+a1.sinks.k1.hdfs.path = hdfs://node01:8020/spooldir/files/%y-%m-%d/%H%M/
+# 文件前缀
+a1.sinks.k1.hdfs.filePrefix = events-
+# 文件采集滚动 begin
+# 是否采用文件滚动
+a1.sinks.k1.hdfs.round = true
+# 文件夹生成周期 每10分钟一次 begin
+a1.sinks.k1.hdfs.roundValue = 10
+a1.sinks.k1.hdfs.roundUnit = minute
+# 文件夹生成周期 每10分钟一次 end
+# (下面三个条件达到一个则生成新文件)每隔3秒产生一个新的文件
+a1.sinks.k1.hdfs.rollInterval = 3
+# 文件大小达到20字节产生一个新文件(临时文件,最终会到hdfs)
+a1.sinks.k1.hdfs.rollSize = 20
+# 文件(hdfs的临时文件)大小达到5个event时,产生一个新文件
+a1.sinks.k1.hdfs.rollCount = 5
+# 文件采集滚动 end
+# 一次性从channel中拿几个单位数据量,batchSize < transactionCapacity < capacity
+a1.sinks.k1.hdfs.batchSize = 1
+# 是否使用本地时间戳
+a1.sinks.k1.hdfs.useLocalTimeStamp = true
+#生成的文件类型，默认是Sequencefile，可用DataStream，则为普通文本
+a1.sinks.k1.hdfs.fileType = DataStream
+
+# Bind the source and sink to the channel
+a1.sources.r1.channels = c1
+a1.sinks.k1.channel = c1
 
 
+Step 2: 启动 Flume
+启动agent去采集数据
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/
+bin/flume-ng agent -c ./conf -f ./conf/spooldir.conf -n a1 -Dflume.root.logger=INFO,console
 
+Step 3: 上传文件到指定目录
+将不同的文件上传到下面目录里面去，注意文件不能重名
+cd /home/hadoop/mw/dirfile
 
+添加测试文件,隔3秒输入测试一次
 
+cat > 1.txt <<'EOF'
+1 1
+2 2
+3 3
+EOF
 
+cat > 4.txt <<'EOF'
+4 4
+5 5
+6 6
+EOF
 
-
-
-
+cat > 7.txt <<'EOF'
+7 7
+8 8
+9 9
+EOF
 
 
 
