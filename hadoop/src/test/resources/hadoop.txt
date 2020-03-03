@@ -919,12 +919,12 @@ hdfs  dfs  -chown  -R hadoop:hadoop  /xxx
 
 hdfs访问权限控制
 停止hdfs集群，在node01机器上执行以下命令
-cd /export/servers/hadoop-3.1.1
+cd /home/hadoop/mw/hadoop-3.1.1
 sbin/stop-dfs.sh
 
 
 修改node01机器上的hdfs-site.xml当中的配置文件
-cd /export/servers/hadoop-3.1.1/etc/hadoop
+cd /home/hadoop/mw/hadoop-3.1.1/etc/hadoop
 vim hdfs-site.xml
 
 # 之前配置文件默认的是 false,方便操作(其他系统操作,也会校验该系统的用户名)
@@ -942,7 +942,7 @@ scp hdfs-site.xml node03:$PWD
 
 
 随意上传一些文件到我们hadoop集群当中准备测试使用
-cd /export/servers/hadoop-3.1.1/etc/hadoop
+cd /home/hadoop/mw/hadoop-3.1.1/etc/hadoop
 hdfs dfs -mkdir /config
 hdfs dfs -put *.xml /config
 hdfs dfs -chmod 600 /config/core-site.xml
@@ -1230,7 +1230,7 @@ Transaction isolation: TRANSACTION_REPEATABLE_READ
 cd /home/hadoop/mw/apache-hive-3.1.0-bin
 bin/hive -e "create database if not exists mytest;"
 或者我们可以将我们的hql语句写成一个sql脚本然后执行
-cd /export/servers
+cd /home/hadoop/mw
 vim hive.sql
 
 --  hive.sql test begin
@@ -1686,8 +1686,8 @@ left join score s
 on s.c_id = c.c_id
 left join student stu
 on s.s_id = stu.s_id;
-大多数情况下，Hive会对每对JOIN连接对象启动一个MapReduce任务。本例中会首先启动一个MapReduce job对表
-techer和表course进行连接操作，然后会再启动一个MapReduce job将第一个MapReduce job的输出和表score;进行连
+大多数情况下，Hive会对每对JOIN连接对象启动一个MapReduce任务。本例中会首先启动一个MapReduce job对表
+techer和表course进行连接操作，然后会再启动一个MapReduce job将第一个MapReduce job的输出和表score;进行连
 接操作。
 
 2.9. 排序
@@ -1727,9 +1727,9 @@ insert overwrite local directory '/home/hadoop/software/sort' select * from scor
 2.9.5. 分区排序（DISTRIBUTE BY）
 Distribute By：类似MR中partition，进行分区，结合sort by使用。
 注意，Hive要求DISTRIBUTE BY语句要写在SORT BY语句之前。
-对于distribute by进行测试，一定要分配多reduce进行处理，否则无法看到distribute by的效果。
+对于distribute by进行测试，一定要分配多reduce进行处理，否则无法看到distribute by的效果。
 
-先按照学生id进行分区，再按照学生成绩进行排序。
+先按照学生id进行分区，再按照学生成绩进行排序。
 1. 设置reduce的个数，将我们对应的s_id划分到对应的reduce当中去
 set mapreduce.job.reduces=7;
 查看设置reduce个数
@@ -1801,7 +1801,7 @@ OK
 facebook.com
 Time taken: 0.162 seconds, Fetched: 1 row(s)
 
-# explode：把map集合中每个键值对或数组中的每个元素都单独生成一行的形式
+# explode：把map集合中每个键值对或数组中的每个元素都单独生成一行的形式
 
 
 3.2. 自定义函数
@@ -2079,6 +2079,1498 @@ cat > 7.txt <<'EOF'
 8 8
 9 9
 EOF
+
+
+
+需求
+比如业务系统使用log4j生成的日志，日志内容不断增加，需要把追加到日志文件中的数据实时采集到hdfs
+
+分析
+根据需求，首先定义以下3大要素
+采集源，即source——监控文件内容更新 : exec ‘tail -F file’
+
+下沉目标，即sink——HDFS文件系统 : hdfs sink
+Source和sink之间的传递通道——channel，可用file channel 也可以用 内存channel
+
+Step 1: 定义 Flume 配置文件
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/conf/
+vim tail-file.conf
+
+
+agent1.sources = source1
+agent1.sinks = sink1
+agent1.channels = channel1
+# Describe/configure tail -F source1
+# type = exec 可以监控linux一个命令的执行结果
+agent1.sources.source1.type = exec
+agent1.sources.source1.command = tail -F /home/hadoop/mw/taillogs/access_log
+# 最后配置关系: agent1.sources.source1.channels = channel1
+# Describe sink1
+agent1.sinks.sink1.type = hdfs
+#a1.sinks.k1.channel = c1
+agent1.sinks.sink1.hdfs.path = hdfs://node01:8020/weblog/flume-collection/%y-%m-%d/%H-%M
+# 文件前缀
+agent1.sinks.sink1.hdfs.filePrefix = access_log
+# 最大可打开文件
+agent1.sinks.sink1.hdfs.maxOpenFiles = 5000
+# 最多可存储event个数
+agent1.sinks.sink1.hdfs.batchSize= 100
+# 文件格式DataStream(普通文件类型)
+agent1.sinks.sink1.hdfs.fileType = DataStream
+# 文件类型 : Text 文本类型
+agent1.sinks.sink1.hdfs.writeFormat =Text
+# 滚动文件 rollSize达到多大进行切割, rollCount达到多少行进行切割
+agent1.sinks.sink1.hdfs.rollSize = 102400
+agent1.sinks.sink1.hdfs.rollCount = 1000000
+# 十分钟创建一个新的文件夹
+agent1.sinks.sink1.hdfs.round = true
+agent1.sinks.sink1.hdfs.roundValue = 10
+agent1.sinks.sink1.hdfs.roundUnit = minute
+agent1.sinks.sink1.hdfs.useLocalTimeStamp = true
+# Use a channel which buffers events in memory
+agent1.channels.channel1.type = memory
+agent1.channels.channel1.keep-alive = 120
+agent1.channels.channel1.capacity = 500000
+agent1.channels.channel1.transactionCapacity = 600
+# Bind the source and sink to the channel
+agent1.sources.source1.channels = channel1
+agent1.sinks.sink1.channel = channel1
+
+
+
+创建测试文件:
+mkdir -p /home/hadoop/mw/taillogs/
+mkdir -p /home/hadoop/mw/shells/
+cd /home/hadoop/mw/shells/
+vim tail-file.sh
+
+#!/bin/bash
+while true
+do
+date >> /home/hadoop/mw/taillogs/access_log;
+sleep 0.5;
+done
+
+启动agent去采集数据
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/
+bin/flume-ng agent -c ./conf -f ./conf/tail-file.conf -n agent1 -Dflume.root.logger=INFO,console
+
+
+启动脚本
+sh /home/hadoop/mw/shells/tail-file.sh
+
+
+
+
+Agent级联
+第一个agent负责收集文件当中的数据，通过网络发送到第二个agent当中去
+第二个agent负责接收第一个agent发送的数据，并将数据保存到hdfs上面去
+Step 1: Node02 安装 Flume
+将node01机器上面解压后的flume文件夹拷贝到node02机器上面去
+cd /home/hadoop/mw/
+scp -r apache-flume-1.8.0-bin/ node02:$PWD
+Step 2: Node02 配置 Flume
+在node02机器配置我们的flume
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/conf
+vim tail-avro-avro-logger.conf
+
+
+##################
+# Name the components on this agent
+a1.sources = r1
+a1.sinks = k1
+a1.channels = c1
+# Describe/configure the source
+a1.sources.r1.type = exec
+a1.sources.r1.command = tail -F /home/hadoop/mw/taillogs/access_log
+a1.sources.r1.channels = c1
+# Describe the sink
+##sink端的avro是一个数据发送者( avro 表示该组件为级联组件)
+a1.sinks = k1
+a1.sinks.k1.type = avro
+a1.sinks.k1.channel = c1
+# 级联下沉数据到哪台服务器ip:port 接收方需要对应该配置(这里需要发送到node01)
+a1.sinks.k1.hostname = 192.168.25.110
+a1.sinks.k1.port = 4141
+a1.sinks.k1.batch-size = 10
+# Use a channel which buffers events in memory
+a1.channels.c1.type = memory
+a1.channels.c1.capacity = 1000
+a1.channels.c1.transactionCapacity = 100
+# Bind the source and sink to the channel
+a1.sources.r1.channels = c1
+a1.sinks.k1.channel = c1
+
+Step 3: 开发脚本向文件中写入数据
+直接将node01下面的脚本和数据拷贝到node02即可，node03机器上执行以下命令
+cd /home/hadoop/mw
+scp -r shells/ taillogs/ node02:$PWD
+
+Step 4: Node01 Flume 配置文件
+在node01机器上开发flume的配置文件
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/conf
+vim avro-hdfs.conf
+
+
+# Name the components on this agent
+a1.sources = r1
+a1.sinks = k1
+a1.channels = c1
+# Describe/configure the source
+##source中的avro组件是一个接收者服务(node01是接收方,接收方开启本机端口接收数据)
+a1.sources.r1.type = avro
+a1.sources.r1.channels = c1
+a1.sources.r1.bind = 192.168.25.110
+a1.sources.r1.port = 4141
+# Describe the sink
+a1.sinks.k1.type = hdfs
+a1.sinks.k1.hdfs.path = hdfs://node01:8020/av/%y-%m-%d/%H%M/
+a1.sinks.k1.hdfs.filePrefix = eventsa1.sinks.k1.hdfs.round = true
+a1.sinks.k1.hdfs.roundValue = 10
+a1.sinks.k1.hdfs.roundUnit = minute
+a1.sinks.k1.hdfs.rollInterval = 3
+a1.sinks.k1.hdfs.rollSize = 20
+a1.sinks.k1.hdfs.rollCount = 5
+a1.sinks.k1.hdfs.batchSize = 1
+a1.sinks.k1.hdfs.useLocalTimeStamp = true
+#生成的文件类型，默认是Sequencefile，可用DataStream，则为普通文本
+a1.sinks.k1.hdfs.fileType = DataStream
+# Use a channel which buffers events in memory
+a1.channels.c1.type = memory
+a1.channels.c1.capacity = 1000
+a1.channels.c1.transactionCapacity = 100
+# Bind the source and sink to the channel
+a1.sources.r1.channels = c1
+a1.sinks.k1.channel = c1
+
+
+Step 5: 顺序启动
+node01机器启动flume进程
+cd /home/hadoop/mw/apache-flume-1.8.0-bin
+bin/flume-ng agent -c conf -f conf/avro-hdfs.conf -n a1 -Dflume.root.logger=INFO,console
+
+node02机器启动flume进程
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/
+bin/flume-ng agent -c conf -f conf/tail-avro-avro-logger.conf -n a1 -Dflume.root.logger=INFO,console
+
+
+node02机器启shell脚本生成文件
+cd /home/hadoop/mw/shells
+sh tail-file.sh
+
+
+
+
+
+高可用方案
+在完成单点的Flume NG搭建后，下面我们搭建一个高可用的Flume NG集群，架构图如下所示：
+
+Flume的Agent和Collector分布如下表所示：
+名称 		HOST 		角色
+Agent1 		node01 		Web Server
+Collector1 	node02 		AgentMstr1
+Collector2 	node03 		AgentMstr2
+
+Agent1数据分别流入到Collector1和Collector2，Flume NG本身提供了Failover机制，
+可以自动切换和恢复(实现了故障转移)
+
+Node03 安装和配置
+将node01机器上面的flume安装包以及文件生产的两个目录拷贝到node01机器上面去
+node01机器执行以下命令
+cd /home/hadoop/mw
+scp -r apache-flume-1.8.0-bin/ node03:$PWD
+scp -r shells/ taillogs/ node03:$PWD
+
+node01机器配置agent的配置文件
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/conf
+vim agent.conf
+
+
+#agent1 name
+agent1.channels = c1
+agent1.sources = r1
+# 这里配置了两个 sinks,两个sinks多活
+agent1.sinks = k1 k2
+
+###set gruop
+agent1.sinkgroups = g1
+###
+
+agent1.sources.r1.channels = c1
+agent1.sources.r1.type = exec
+agent1.sources.r1.command = tail -F /home/hadoop/mw/taillogs/access_log
+
+###set channel
+agent1.channels.c1.type = memory
+agent1.channels.c1.capacity = 1000
+agent1.channels.c1.transactionCapacity = 100
+
+###set sink1
+agent1.sinks.k1.channel = c1
+agent1.sinks.k1.type = avro
+agent1.sinks.k1.hostname = node02
+agent1.sinks.k1.port = 52020
+
+###set sink2
+agent1.sinks.k2.channel = c1
+agent1.sinks.k2.type = avro
+agent1.sinks.k2.hostname = node03
+agent1.sinks.k2.port = 52020
+
+###set sink group
+agent1.sinkgroups.g1.sinks = k1 k2
+
+###set failover type(failover表示故障转移,只发送给权重高的一台,权重高的挂掉再发送给权重低的一台)
+agent1.sinkgroups.g1.processor.type = failover
+agent1.sinkgroups.g1.processor.priority.k1 = 10
+agent1.sinkgroups.g1.processor.priority.k2 = 1
+# 最大惩罚时间,当机器宕机后,多长时间能不能恢复接收数据
+agent1.sinkgroups.g1.processor.maxpenalty = 10000
+
+
+
+
+
+
+Node02 与 Node03 配置 FlumeCollection
+node02机器修改配置文件
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/conf
+vim collector.conf
+
+#set Agent name
+a1.sources = r1
+a1.channels = c1
+a1.sinks = k1
+
+###set channel
+a1.channels.c1.type = memory
+a1.channels.c1.capacity = 1000
+a1.channels.c1.transactionCapacity = 100
+
+###other node,nna to nns
+a1.sources.r1.type = avro
+a1.sources.r1.bind = node02
+a1.sources.r1.port = 52020
+a1.sources.r1.channels = c1
+
+###set sink to hdfs
+a1.sinks.k1.type=hdfs
+a1.sinks.k1.hdfs.path= hdfs://node01:8020/flume/failover/
+a1.sinks.k1.hdfs.fileType=DataStream
+# 是否使用本地时间戳
+a1.sinks.k1.hdfs.useLocalTimeStamp = true
+a1.sinks.k1.hdfs.writeFormat=TEXT
+a1.sinks.k1.hdfs.rollInterval=10
+a1.sinks.k1.channel=c1
+a1.sinks.k1.hdfs.filePrefix=%Y-%m-%d
+#
+
+
+
+node03机器修改配置文件
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/conf
+vim collector.conf
+
+#set Agent name
+a1.sources = r1
+a1.channels = c1
+a1.sinks = k1
+
+###set channel
+a1.channels.c1.type = memory
+a1.channels.c1.capacity = 1000
+a1.channels.c1.transactionCapacity = 100
+
+###other node,nna to nns
+a1.sources.r1.type = avro
+a1.sources.r1.bind = node03
+a1.sources.r1.port = 52020
+a1.sources.r1.channels = c1
+
+###set sink to hdfs
+a1.sinks.k1.type=hdfs
+a1.sinks.k1.hdfs.path= hdfs://node01:8020/flume/failover/
+a1.sinks.k1.hdfs.fileType=DataStream
+# 是否使用本地时间戳
+a1.sinks.k1.hdfs.useLocalTimeStamp = true
+a1.sinks.k1.hdfs.writeFormat=TEXT
+a1.sinks.k1.hdfs.rollInterval=10
+a1.sinks.k1.channel=c1
+a1.sinks.k1.hdfs.filePrefix=%Y-%m-%d
+
+
+
+
+
+顺序启动(时间同步 /usr/sbin/ntpdate ntp4.aliyun.com;)
+node03机器上面启动flume
+cd /home/hadoop/mw/apache-flume-1.8.0-bin
+bin/flume-ng agent -n a1 -c conf -f conf/collector.conf -Dflume.root.logger=DEBUG,console
+
+node02机器上面启动flume
+cd /home/hadoop/mw/apache-flume-1.8.0-bin
+bin/flume-ng agent -n a1 -c conf -f conf/collector.conf -Dflume.root.logger=DEBUG,console
+
+node01机器上面启动flume
+cd /home/hadoop/mw/apache-flume-1.8.0-bin
+bin/flume-ng agent -n agent1 -c conf -f conf/agent.conf -Dflume.root.logger=DEBUG,console
+
+node01机器启动文件产生脚本
+cd /home/hadoop/mw/shells
+sh tail-file.sh
+
+
+
+下面我们来测试下Flume NG集群的高可用（故障转移）。
+场景如下：我们在Agent1节点上传文件，由于我们配置Collector1的权重比Collector2大，
+所以 Collector1优先采集并上传到存储系统。然后我们kill掉Collector1，
+此时有Collector2负责日志的采集上传工作，之后，我们手动恢复Collector1节点的Flume服务，
+再次在Agent1上次文件，发现Collector1恢复优先级别的采集工作。
+
+
+
+
+
+
+Flume 的负载均衡
+负载均衡是用于解决一台机器(一个进程)无法解决所有请求而产生的一种算法。Load balancing Sink
+Processor 能够实现 load balance 功能，Agent1 是一个路由节点，负责将 Channel 暂存的
+Event 均衡到对应的多个 Sink组件上，而每个 Sink 组件分别连接到一个独立的 Agent 上
+
+三台机器(模拟flume的负载均衡)规划如下：
+node01：采集数据，发送到node02和node03机器上去
+node02：接收node01的部分数据
+node03：接收node01的部分数据
+
+
+第一步：开发node01服务器的flume配置
+node01服务器配置：
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/conf
+vim load_banlancer_client.conf
+
+
+# agent name
+a1.channels = c1
+a1.sources = r1
+a1.sinks = k1 k2
+
+# set gruop
+a1.sinkgroups = g1
+
+# set channel
+a1.channels.c1.type = memory
+a1.channels.c1.capacity = 1000
+a1.channels.c1.transactionCapacity = 100
+a1.sources.r1.channels = c1
+a1.sources.r1.type = exec
+a1.sources.r1.command = tail -F /home/hadoop/mw/taillogs/access_log
+
+# set sink1
+a1.sinks.k1.channel = c1
+a1.sinks.k1.type = avro
+a1.sinks.k1.hostname = node02
+a1.sinks.k1.port = 52020
+
+# set sink2
+a1.sinks.k2.channel = c1
+a1.sinks.k2.type = avro
+a1.sinks.k2.hostname = node03
+a1.sinks.k2.port = 52020
+# set sink group
+a1.sinkgroups.g1.sinks = k1 k2
+
+# set load_balance
+# load_balance 表示负载均衡; failover 表示失败转移
+a1.sinkgroups.g1.processor.type = load_balance
+a1.sinkgroups.g1.processor.backoff = true
+# round_robin表示轮询策略
+a1.sinkgroups.g1.processor.selector = round_robin
+# 超时时间
+a1.sinkgroups.g1.processor.selector.maxTimeOut=10000
+
+
+
+第二步：开发node02服务器的flume配置
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/conf
+vim load_banlancer_server.conf
+
+# Name the components on this agent
+a1.sources = r1
+a1.sinks = k1
+a1.channels = c1
+
+# Describe/configure the source
+a1.sources.r1.type = avro
+a1.sources.r1.channels = c1
+a1.sources.r1.bind = node02
+a1.sources.r1.port = 52020
+
+# Describe the sink
+a1.sinks.k1.type = logger
+
+# Use a channel which buffers events in memory
+a1.channels.c1.type = memory
+a1.channels.c1.capacity = 1000
+a1.channels.c1.transactionCapacity = 100
+
+# Bind the source and sink to the channel
+a1.sources.r1.channels = c1
+a1.sinks.k1.channel = c1
+
+
+
+第三步：开发node03服务器flume配置
+node03服务器配置
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/conf
+vim load_banlancer_server.conf
+
+# Name the components on this agent
+a1.sources = r1
+a1.sinks = k1
+a1.channels = c1
+
+# Describe/configure the source
+a1.sources.r1.type = avro
+a1.sources.r1.channels = c1
+a1.sources.r1.bind = node03
+a1.sources.r1.port = 52020
+
+# Describe the sink
+a1.sinks.k1.type = logger
+
+# Use a channel which buffers events in memory
+a1.channels.c1.type = memory
+a1.channels.c1.capacity = 1000
+a1.channels.c1.transactionCapacity = 100
+
+# Bind the source and sink to the channel
+a1.sources.r1.channels = c1
+a1.sinks.k1.channel = c1
+
+
+第四步：准备启动flume服务
+启动node03的flume服务
+cd /home/hadoop/mw/apache-flume-1.8.0-bin
+bin/flume-ng agent -n a1 -c conf -f conf/load_banlancer_server.conf -Dflume.root.logger=DEBUG,console
+
+启动node02的flume服务
+cd /home/hadoop/mw/apache-flume-1.8.0-bin
+bin/flume-ng agent -n a1 -c conf -f conf/load_banlancer_server.conf -Dflume.root.logger=DEBUG,console
+
+启动node01的flume服务
+cd /home/hadoop/mw/apache-flume-1.8.0-bin
+bin/flume-ng agent -n a1 -c conf -f conf/load_banlancer_client.conf -Dflume.root.logger=DEBUG,console
+
+
+第五步：node01服务器运行脚本产生数据
+cd /home/hadoop/mw/shells
+sh tail-file.sh
+
+5. Flume 案例一
+1. 案例场景
+A、B两台日志服务机器实时生产日志主要类型为access.log、nginx.log、web.log
+现在要求：
+把A、B 机器中的access.log、nginx.log、web.log 采集汇总到C机器上然后统一收集到hdfs中。
+但是在hdfs中要求的目录为：
+/source/logs/access/20180101/**
+/source/logs/nginx/20180101/**
+/source/logs/web/20180101/**
+
+
+采集端配置文件开发
+node01与node02服务器开发flume的配置文件
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/conf/
+vim exec_source_avro_sink.conf
+
+# Name the components on this agent
+# 表示存在三个sources源,因为需要读取三个文件的变化
+a1.sources = r1 r2 r3
+a1.sinks = k1
+a1.channels = c1
+# Describe/configure the source
+a1.sources.r1.type = exec
+a1.sources.r1.command = tail -F /home/hadoop/mw/taillogs/access.log
+# 配置拦截器,给数据加上tag,这样到了数据接收端才能根据tag不同存储到对应的文件目录
+# 拦截器名
+a1.sources.r1.interceptors = i1
+# 表示拦截器为静态拦截器
+a1.sources.r1.interceptors.i1.type = static
+## static拦截器的功能就是往采集到的数据的header中插入自己定义的key-value对
+## key=type 表示标记的键的名字为 type, 下游获取数据就能通过类似 get("type") 方式获取对应的value值;
+## key值可以自定义
+a1.sources.r1.interceptors.i1.key = type
+## value就是获取对应key时会得到的结果,value值不同,放置到不同的文件夹
+a1.sources.r1.interceptors.i1.value = access
+a1.sources.r2.type = exec
+a1.sources.r2.command = tail -F /home/hadoop/mw/taillogs/nginx.log
+a1.sources.r2.interceptors = i2
+a1.sources.r2.interceptors.i2.type = static
+a1.sources.r2.interceptors.i2.key = type
+a1.sources.r2.interceptors.i2.value = nginx
+a1.sources.r3.type = exec
+a1.sources.r3.command = tail -F /home/hadoop/mw/taillogs/web.log
+a1.sources.r3.interceptors = i3
+a1.sources.r3.interceptors.i3.type = static
+a1.sources.r3.interceptors.i3.key = type
+a1.sources.r3.interceptors.i3.value = web
+
+# Describe the sink
+a1.sinks.k1.type = avro
+a1.sinks.k1.hostname = node03
+a1.sinks.k1.port = 41414
+# Use a channel which buffers events in memory
+a1.channels.c1.type = memory
+a1.channels.c1.capacity = 20000
+a1.channels.c1.transactionCapacity = 10000
+
+# Bind the source and sink to the channel
+a1.sources.r1.channels = c1
+a1.sources.r2.channels = c1
+a1.sources.r3.channels = c1
+a1.sinks.k1.channel = c1
+
+
+
+
+服务端配置文件开发
+在node03上面开发flume配置文件
+cd /home/hadoop/mw/apache-flume-1.8.0-bin/conf/
+vim avro_source_hdfs_sink.conf
+
+a1.sources = r1
+a1.sinks = k1
+a1.channels = c1
+# 定义source
+a1.sources.r1.type = avro
+a1.sources.r1.bind = node03
+a1.sources.r1.port =41414
+# 添加时间拦截器
+a1.sources.r1.interceptors = i1
+a1.sources.r1.interceptors.i1.type = org.apache.flume.interceptor.TimestampInterceptor$Builder
+
+# 定义channels
+a1.channels.c1.type = memory
+a1.channels.c1.capacity = 20000
+a1.channels.c1.transactionCapacity = 10000
+
+# 定义sink
+a1.sinks.k1.type = hdfs
+# 获取拦截器中的值,%{type} 里面自定义的 type 要跟之前拦截器 key 的名字保持一致
+a1.sinks.k1.hdfs.path=hdfs://node01:8020/source/logs/%{type}/%Y%m%d
+a1.sinks.k1.hdfs.filePrefix =events
+a1.sinks.k1.hdfs.fileType = DataStream
+a1.sinks.k1.hdfs.writeFormat = Text
+
+# 时间类型
+a1.sinks.k1.hdfs.useLocalTimeStamp = true
+# 生成的文件不按条数生成
+a1.sinks.k1.hdfs.rollCount = 0
+# 生成的文件按时间生成
+a1.sinks.k1.hdfs.rollInterval = 30
+# 生成的文件按大小生成
+a1.sinks.k1.hdfs.rollSize = 10485760
+# 批量写入hdfs的个数
+a1.sinks.k1.hdfs.batchSize = 10000
+# flume操作hdfs的线程数（包括新建，写入等）
+a1.sinks.k1.hdfs.threadsPoolSize=10
+# 操作hdfs超时时间
+a1.sinks.k1.hdfs.callTimeout=30000
+# 组装source、channel、sink
+a1.sources.r1.channels = c1
+a1.sinks.k1.channel = c1
+
+
+采集端文件生成脚本
+在node01与node02上面开发shell脚本，模拟数据生成
+cd /home/hadoop/mw/shells
+vim server.sh
+
+
+# !/bin/bash
+
+while true
+do
+date >> /home/hadoop/mw/taillogs/access.log;
+date >> /home/hadoop/mw/taillogs/web.log;
+date >> /home/hadoop/mw/taillogs/nginx.log;
+sleep 0.5;
+done
+
+
+顺序启动服务
+node03启动flume实现数据收集
+cd /home/hadoop/mw/apache-flume-1.8.0-bin
+bin/flume-ng agent -c conf -f conf/avro_source_hdfs_sink.conf -name a1 -Dflume.root.logger=DEBUG,console
+
+node01与node02启动flume实现数据监控
+cd /home/hadoop/mw/apache-flume-1.8.0-bin
+bin/flume-ng agent -c conf -f conf/exec_source_avro_sink.conf -name a1 -Dflume.root.logger=DEBUG,console
+
+
+
+node01与node02启动生成文件脚本
+cd /home/hadoop/mw/shells
+sh server.sh
+
+
+
+
+
+
+
+
+为什么需要Azkaban
+一个完整的数据分析系统通常都是由大量任务单元组成
+shell脚本程序
+java程序
+mapreduce程序
+hive脚本等
+
+各任务单元之间存在时间先后及前后依赖关系, 为了很好地组织起这样的复杂执行计划，
+需要一个工作流调度系统来调度执行；
+例如，我们可能有这样一个需求，某个业务系统每天产生20G原始数据，我们每天都要对其进行处理，
+处理步骤如下所示：
+1. 通过Hadoop先将原始数据同步到HDFS上；
+2. 借助MapReduce计算框架对原始数据进行转换，生成的数据以分区表的形式存储到多张Hive表中；
+3. 需要对Hive中多个表的数据进行JOIN处理，得到一个明细数据Hive大表；
+4. 将明细数据进行各种统计分析，得到结果报表信息；
+5. 需要将统计分析得到的结果数据同步到业务系统中，供业务调用使用。
+
+安装
+2.1. 编译
+我们这里选用azkaban3.51.0这个版本自己进行重新编译，编译完成之后得到我们需要的安装包进行安装
+注意：我们这里编译需要使用jdk1.8的版本来进行编译，如果编译服务器使用的jdk版本是1.7的，
+记得切换成jdk1.8，我们这里使用的是jdk8u141这个版本来进行编译
+
+(注意在安装了需要使用数据库的机器上安装,方便测试,目前是node01)
+cd /home/hadoop/software/
+
+wget https://github.com/azkaban/azkaban/archive/3.51.0.tar.gz
+或
+上传已经下载好的 zxvf 3.51.0.tar.gz 包
+
+tar -zxvf 3.51.0.tar.gz -C ../mw/
+
+yum -y install git
+yum -y install gcc-c++
+
+# 最好能使用下载编译好的,编译需要下载仓库等时间较长
+cd /home/hadoop/mw/azkaban-3.51.0/
+./gradlew build installDist -x test
+
+编译完成后得到如下文件
+
+Azkaban组件
+1. azkaban-exec-server(负责任务的执行)
+2. azkaban-web-server(负责任务的页面显示和其他调度)
+3. DB
+
+
+单服务模式: Sole Server
+一个进程中包含了:
+Exec server
+Web Server
+H2 (Azkaban自带的数据库)
+
+
+Two Server模式
+进程一
+Exec Server
+进程二
+Web Server
+
+数据库(存储两个进程间需要交互的数据) 可以采用mysql等
+
+
+集群模式:
+进程一
+Exec Server
+进程二
+Web Server
+进程三
+Web Server
+
+数据库
+
+
+
+azkaban-exec-server
+编译完成之后得到我们需要的安装包在以下目录下即可获取得到
+azkaban-exec-server存放目录
+/home/hadoop/mw/azkaban-3.51.0/azkaban-exec-server/build/distributions
+
+azkaban-web-server
+azkaban-web-server存放目录
+/home/hadoop/mw/azkaban-3.51.0/azkaban-web-server/build/distributions
+
+azkaban-solo-server
+azkaban-solo-server存放目录
+/home/hadoop/mw/azkaban-3.51.0/azkaban-solo-server/build/distributions
+
+
+execute-as-user.c
+azkaban two server模式下需要的C程序在这个路径下面
+/home/hadoop/mw/azkaban-3.51.0/az-exec-util/src/main/c
+
+
+数据库脚本文件
+数据库脚本文件在这个路径下面
+/home/hadoop/mw/azkaban-3.51.0/azkaban-db/build/install/azkaban-db
+
+
+Azkaban 单服务模式安装与使用
+
+
+所需软件 : azkaban-solo-server
+Step 1: 解压
+azkaban 的solo server使用的是一个单节点的模式来进行启动服务的，
+只需要一个azkaban-solo-server-0.1.0-SNAPSHOT.tar.gz的安装包即可启动，
+所有的数据信息都是保存在H2这个azkaban默认的数据当中，
+找编译后的目录:
+cd /home/hadoop/mw/azkaban-3.51.0/azkaban-solo-server/build/distributions
+cp azkaban-solo-server-0.1.0-SNAPSHOT.tar.gz /home/hadoop/software
+或
+上传我们的压缩包
+然后修改配置文件启动即可
+
+cd /home/hadoop/software
+tar -zxvf azkaban-solo-server-0.1.0-SNAPSHOT.tar.gz -C ../mw/
+
+Step 2: 修改时区配置文件
+cd /home/hadoop/mw/azkaban-solo-server-0.1.0-SNAPSHOT/conf
+vim azkaban.properties
+
+找到 default.timezone.id 这行配置文件:
+default.timezone.id=Asia/Shanghai
+
+修改commonprivate.properties配置文件
+cd /home/hadoop/mw/azkaban-solo-server-0.1.0-SNAPSHOT/plugins/jobtypes
+vim commonprivate.properties
+
+# 需要新增下面两行配置,以关闭内存检查(azkaban 对内存要求较高,测试环境需要取消内存检查)
+execute.as.user=false
+memCheck.enabled=false
+
+Step 3: 启动solo-server
+启动azkaban-solo-server
+cd /home/hadoop/mw/azkaban-solo-server-0.1.0-SNAPSHOT
+bin/start-solo.sh
+
+Step 4: 启动验证
+
+通过 jps 命令查看是否启动
+40846 AzkabanSingleServer
+
+
+浏览器页面访问
+http://node03:8081/
+用户名: azkaban
+密码:   azkaban
+
+
+单服务模式使用
+需求：使用azkaban调度我们的shell脚本，执行linux的shell命令
+
+可以在Windows系统(能打开azkaban主页面的系统)创建普通文本文件 foo.job，文件内容如下
+
+# command表示任务类型为执行命令
+type=command
+# 需要执行的命令为 echo
+command=echo "hello world"
+
+然后将这个文件打包为压缩文件，如下：
+foo.zip
+
+上传我们的压缩包到 azkaban
+1. 通过 http://node03:8081/ 登录
+2. 点击Projects菜单栏中的 Create Project; name和Description自定义,如 helloProject
+3. 在创建好的 helloProject 中点击上传(upload)
+4. 选择刚刚压缩好的 foo.zip 上传成功后,在 helloProject 中的Flows显示新增的 foo
+5. 在 foo 列,点击 Execute Flow
+
+
+
+
+Azkaban 两个服务器模式安装与使用
+
+
+需要的工具
+Azkaban Web服务安装包 azkaban-web-server-0.1.0-SNAPSHOT.tar.gz
+Azkaban执行服务安装包 azkaban-exec-server-0.1.0-SNAPSHOT.tar.gz
+编译之后的sql脚本 create-all-sql-0.1.0-SNAPSHOT.sql
+C程序文件脚本 execute-as-user.c
+
+对应路径
+/home/hadoop/mw/azkaban-3.51.0/azkaban-exec-server/build/distributions
+/home/hadoop/mw/azkaban-3.51.0/azkaban-web-server/build/distributions
+/home/hadoop/mw/azkaban-3.51.0/azkaban-db/build/install/azkaban-db
+/home/hadoop/mw/azkaban-3.51.0/az-exec-util/src/main/c
+
+
+cp /home/hadoop/mw/azkaban-3.51.0/azkaban-exec-server/build/distributions/azkaban-exec-server-0.1.0-SNAPSHOT.tar.gz /home/hadoop/software/
+cp /home/hadoop/mw/azkaban-3.51.0/azkaban-web-server/build/distributions/azkaban-web-server-0.1.0-SNAPSHOT.tar.gz /home/hadoop/software/
+cp /home/hadoop/mw/azkaban-3.51.0/azkaban-db/build/install/azkaban-db/create-all-sql-0.1.0-SNAPSHOT.sql /home/hadoop/software/
+cp /home/hadoop/mw/azkaban-3.51.0/az-exec-util/src/main/c/execute-as-user.c /home/hadoop/software/
+
+Step 1: 数据库准备
+进入mysql的客户端执行以下命令
+
+mysql -uroot -p
+
+执行以下命令：
+CREATE DATABASE azkaban;
+CREATE USER 'azkaban'@'%' IDENTIFIED BY 'azkaban';
+GRANT all privileges ON azkaban.* to 'azkaban'@'%' identified by 'azkaban' WITH GRANT OPTION;
+flush privileges;
+use azkaban;
+source /home/hadoop/software/create-all-sql-0.1.0-SNAPSHOT.sql;
+
+
+Step 2: 解压软件包
+解压软件安装包
+
+
+解压azkaban-web-server
+
+cd /home/hadoop/software
+tar -zxvf azkaban-web-server-0.1.0-SNAPSHOT.tar.gz -C ../mw/
+cd /home/hadoop/mw
+mv azkaban-web-server-0.1.0-SNAPSHOT/ azkaban-web-server-3.51.0
+
+解压azkaban-exec-server
+cd /home/hadoop/software
+tar -zxvf azkaban-exec-server-0.1.0-SNAPSHOT.tar.gz -C ../mw/
+cd /home/hadoop/mw
+mv azkaban-exec-server-0.1.0-SNAPSHOT/ azkaban-exec-server-3.51.0
+
+Step 3: 安装SSL安全认证
+安装ssl安全认证，允许我们使用https的方式访问我们的azkaban的web服务
+# 切换到web的主目录,使用keytool生成ssl秘钥
+cd /home/hadoop/mw/azkaban-web-server-3.51.0
+keytool -keystore keystore -alias jetty -genkey -keyalg RSA
+
+注意,输入密码为: azkaban
+密码一定要一个个的字母输入，或者粘贴也行
+
+What is your first and last name?
+What is the name of your organizational unit?
+What is the name of your organization?
+What is the name of your City or Locality?
+What is the name of your State or Province?
+What is the two-letter country code for this unit?
+以上信息直接回车即可
+
+Is CN=Unknown, OU=Unknown, O=Unknown, L=Unknown, ST=Unknown, C=Unknown correct?
+  [no]:
+这里需要输入: yes
+
+Enter key password for <jetty>
+        (RETURN if same as keystore password):
+这里的密码还是输入: azkaban
+
+最后查看keystore是否生成成功
+ll
+
+
+Step 4: azkaban web server安装
+修改azkaban-web-server的配置文件
+
+cd /home/hadoop/mw/azkaban-web-server-3.51.0/conf
+vim azkaban.properties
+
+
+# Azkaban Personalization Settings
+# azkaban的名字,可以自定义
+azkaban.name=Azkaban
+# azkaban的标签,可以自定义
+azkaban.label=My Azkaban
+azkaban.color=#FF3601
+azkaban.default.servlet.path=/index
+web.resource.dir=web/
+# 时区需要修改
+default.timezone.id=Asia/Shanghai
+# Azkaban UserManager class
+user.manager.class=azkaban.user.XmlUserManager
+user.manager.xml.file=conf/azkaban-users.xml
+# Loader for projects
+executor.global.properties=conf/global.properties
+azkaban.project.dir=projects
+# Velocity dev mode
+velocity.dev.mode=false
+# Azkaban Jetty server properties.
+# 设置可以通过https进行访问
+jetty.use.ssl=true
+jetty.maxThreads=25
+jetty.port=8081
+# ssl=true 需要新增下列ssl的配置信息,端口,秘钥路径,密码
+jetty.ssl.port=8443
+jetty.keystore=/home/hadoop/mw/azkaban-web-server-3.51.0/keystore
+jetty.password=azkaban
+jetty.keypassword=azkaban
+jetty.truststore=/home/hadoop/mw/azkaban-web-server-3.51.0/keystore
+jetty.trustpassword=azkaban
+# 		   新增ssl配置信息结束
+# Azkaban Executor settings
+# mail settings
+mail.sender=
+mail.host=
+# User facing web server configurations used to construct the user facing server URLs. They are useful when there is a reverse proxy between
+Azkaban web servers and users.
+# enduser -> myazkabanhost:443 -> proxy -> localhost:8081
+# when this parameters set then these parameters are used to generate email links.
+# if these parameters are not set then jetty.hostname, and jetty.port(ifssl configured jetty.ssl.port) are used.
+# azkaban.webserver.external_hostname=myazkabanhost.com
+# azkaban.webserver.external_ssl_port=443
+# azkaban.webserver.external_port=8081
+job.failure.email=
+job.success.email=
+lockdown.create.projects=false
+cache.directory=cache
+# JMX stats
+jetty.connector.stats=true
+executor.connector.stats=true
+# Azkaban mysql settings by default. Users should configure their own username and password.
+database.type=mysql
+mysql.port=3306
+# 数据库改成对应主机的主机名
+mysql.host=node01
+mysql.database=azkaban
+mysql.user=azkaban
+mysql.password=azkaban
+mysql.numconnections=100
+#Multiple Executor
+azkaban.use.multiple.executors=true
+# 测试环境需要注释 azkaban.executorselector.filters 不然内存等配置过低启动会失败
+#azkaban.executorselector.filters=StaticRemainingFlowSize,MinimumFreeMemory,CpuStatus
+azkaban.executorselector.comparator.NumberOfAssignedFlowComparator=1
+azkaban.executorselector.comparator.Memory=1
+azkaban.executorselector.comparator.LastDispatched=1
+azkaban.executorselector.comparator.CpuUsage=1
+
+# 需要新增的刷新频率及线程配置 begin
+azkaban.activeexecutor.refresh.milisecinterval=10000
+azkaban.queueprocessing.enabled=true
+azkaban.activeexecutor.refresh.flowinterval=10
+azkaban.executorinfo.refresh.maxThreads=10
+# 需要新增的刷新频率及线程配置 end
+
+Step 5: azkaban executor server 安装
+第一步：修改azkaban-exex-server配置文件
+
+cd /home/hadoop/mw/azkaban-exec-server-3.51.0/conf
+vim azkaban.properties
+
+
+# Azkaban Personalization Settings
+# name label可以和web保持一致,也可自定义
+azkaban.name=Azkaban
+azkaban.label=My Azkaban
+azkaban.color=#FF3601
+azkaban.default.servlet.path=/index
+web.resource.dir=web/
+# 修改时区
+default.timezone.id=Asia/Shanghai
+# Azkaban UserManager class
+user.manager.class=azkaban.user.XmlUserManager
+user.manager.xml.file=conf/azkaban-users.xml
+# Loader for projects
+executor.global.properties=conf/global.properties
+azkaban.project.dir=projects
+# Velocity dev mode
+velocity.dev.mode=false
+# Azkaban Jetty server properties.
+# 设置开启https
+jetty.use.ssl=true
+jetty.maxThreads=25
+jetty.port=8081
+
+# 对应 ssl=true 需新增配置 begin
+jetty.keystore=/home/hadoop/mw/azkaban-web-server-3.51.0/keystore
+jetty.password=azkaban
+jetty.keypassword=azkaban
+jetty.truststore=/home/hadoop/mw/azkaban-web-server-3.51.0/keystore
+jetty.trustpassword=azkaban
+# 对应 ssl=true 需新增配置 end
+
+# Where the Azkaban web server is located
+# 使用two server所在的主机名
+azkaban.webserver.url=https://node01:8443
+# mail settings
+mail.sender=
+mail.host=
+# User facing web server configurations used to construct the user facing server URLs. They are useful when there is a reverse proxy between
+Azkaban web servers and users.
+# enduser -> myazkabanhost:443 -> proxy -> localhost:8081
+# when this parameters set then these parameters are used to generateemail links.
+# if these parameters are not set then jetty.hostname, and jetty.port(ifssl configured jetty.ssl.port) are used.
+# azkaban.webserver.external_hostname=myazkabanhost.com
+# azkaban.webserver.external_ssl_port=443
+# azkaban.webserver.external_port=8081
+job.failure.email=
+job.success.email=
+lockdown.create.projects=false
+cache.directory=cache
+# JMX stats
+jetty.connector.stats=true
+executor.connector.stats=true
+# Azkaban plugin settings
+azkaban.jobtype.plugin.dir=plugins/jobtypes
+# Azkaban mysql settings by default. Users should configure their ownusername and password.
+database.type=mysql
+mysql.port=3306
+# 同步选择对应数据库主机的主机名
+mysql.host=node01
+mysql.database=azkaban
+mysql.user=azkaban
+mysql.password=azkaban
+mysql.numconnections=100
+# Azkaban Executor settings
+executor.maxThreads=50
+executor.flow.threads=30
+
+
+Step 6: azkaban executor server 安装
+添加插件:
+将我们编译后的C文件execute-as-user.c拷贝到/home/hadoop/mw/azkaban-exec-server-3.51.0/plugins/jobtypes/
+cd /home/hadoop/mw/azkaban-exec-server-3.51.0/plugins/jobtypes/
+cp /home/hadoop/software/execute-as-user.c /home/hadoop/mw/azkaban-exec-server-3.51.0/plugins/jobtypes/
+
+然后执行以下命令生成execute-as-user
+yum -y install gcc-c++
+cd /home/hadoop/mw/azkaban-exec-server-3.51.0/plugins/jobtypes
+gcc execute-as-user.c -o execute-as-user
+chown root execute-as-user
+chmod 6050 execute-as-user
+
+Step 7: azkaban executor server 安装
+修改配置文件
+cd /home/hadoop/mw/azkaban-exec-server-3.51.0/plugins/jobtypes
+vim commonprivate.properties
+
+execute.as.user=false
+# 需要添加的配置信息,跳过内存检查,及配置信息对应的目录
+memCheck.enabled=false
+azkaban.native.lib=/home/hadoop/mw/azkaban-exec-server-3.51.0/plugins/jobtypes
+
+Step 7: 启动服务
+第一步：启动azkaban exec server
+
+cd /home/hadoop/mw/azkaban-exec-server-3.51.0
+bin/start-exec.sh
+
+通过jps命令查看,显示为:
+AzkabanExecutorServer
+
+第二步：激活我们的exec-server
+node01机器任意目录下执行以下命令(注意 :$ 前面为机器的hostname)
+
+curl -G "node01:$(<./executor.port)/executor?action=activate" && echo
+
+显示为 {"status":"success"} 则表示激活成功
+
+第三步：启动azkaban-web-server
+cd /home/hadoop/mw/azkaban-web-server-3.51.0/
+bin/start-web.sh
+
+通过jps命令查看,显示为:
+AzkabanWebServer
+
+访问地址：
+https://node01:8443
+
+Step 8: 修改linux的时区问题
+由于先前做好了时钟同步，所以不用担心时区问题，不需要修改时区了( /usr/sbin/ntpdate ntp4.aliyun.com; )
+注：先配置好服务器节点上的时区
+1. 先生成时区配置文件Asia/Shanghai，用交互式命令 tzselect 即可
+2. 拷贝该时区文件，覆盖系统本地时区配置
+cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
+
+实战
+Azkaba内置的任务类型支持command、java
+
+3.1. Command 类型单一 Job 示例
+Step 1: 创建 Job 描述文件
+创建文本文件，更改名称为mycommand.job
+注意后缀.txt一定不要带上，保存为格式为UFT-8(单纯的UTF-8 不带 bom 的格式)
+内容如下:
+
+type=command
+command=echo 'hello world'
+
+Step 2: 将job资源文件打包成zip文件
+
+Step 3: 创建project并上传压缩包
+通过azkaban的web管理平台创建project并上传job压缩包
+
+首先创建project, name desc自己定义就好
+在对应project中,点击upload上传zip包
+点击execute执行job
+
+3.2. Command 类型多 Job 示例
+
+Step 1: 创建有依赖关系的多个job描述
+第一个job：foo.job
+
+type=command
+command=echo 'foo'
+
+第二个job：bar.job依赖foo.job
+
+type=command
+command=echo 'bar'
+# 表示该任务依赖了foo任务的执行
+dependencies=foo
+
+Step 2: 将所有job资源文件打到一个zip包中
+名字可自定义,例: foo_bar.zip
+
+Step 3: 在azkaban的web管理界面创建工程并上传zip包
+
+Step 4: 启动工作流flow
+点击 Execute Flow,并在弹出界面点击 Execute 即可执行测试
+这里会发现流程上是先执行了foo再去执行bar
+
+3.3. HDFS 操作任务
+Step 1: 创建job描述文件fs.job
+
+type=command
+# 需要使用命令的绝对路径
+command=/home/hadoop/mw/hadoop-3.1.1/bin/hdfs dfs -mkdir /azkaban
+
+Step 2: 将job资源文件打包成zip文件
+例: fs.zip
+Step 3: 通过azkaban的web管理平台创建project并上传job压缩包
+Step 4: 启动执行该job
+
+3.4. MapReduce 任务
+MR 任务依然可以使用command的job类型来执行
+Step 1: 创建job描述文件，及mr程序jar包(示例中直接使用hadoop自带的example.jar 求π的值 3.1415926;后面第一个参数为使用mapreduce的个数,第二个为计算π的采样数,越大越准)
+
+type=command
+command=/home/hadoop/mw/hadoop-3.1.1/bin/hadoop jar hadoop-mapreduce-examples-3.1.1.jar pi 3 5
+
+Step 2: 将所有job资源文件打到一个zip包中
+jar包所在位置: cd /home/hadoop/mw/hadoop-3.1.1/share/hadoop/mapreduce/hadoop-mapreduce-examples-3.1.1.jar
+
+Step 3: 在azkaban的web管理界面创建工程并上传zip包
+Step 4: 启动job
+
+3.5. Hive ​ 脚本任务
+Step 1: 创建job描述文件和hive脚本
+Hive脚本： hive.sql
+
+create database if not exists azhive;
+use azhive;
+create table if not exists aztest(id string,name string) row format delimited fields terminated by '\t';
+
+
+Step 2: Job描述文件：hive.job
+
+type=command
+command=/home/hadoop/mw/apache-hive-3.1.0-bin/bin/hive -f 'hive.sql'
+
+Step 3: 将所有job资源文件打到一个zip包中
+例: hive.zip
+
+Step 4: 在azkaban的web管理界面创建工程并上传zip包
+Step 5: 启动job
+
+验证是否创建成功
+cd /home/hadoop/mw/apache-hive-3.1.0-bin/
+bin/hive
+
+show databases;
+use azhive;
+show tables;
+
+3.6. Azkaban 的定时任务
+使用azkaban的scheduler功能可以实现对我们的作业任务进行定时调度功能
+在点击了Execute Flow后,弹出界面的左下角 Schedule 进行配置
+
+*/1 * ? * * 每分钟执行一次定时调度任务
+0 1 ? * * 每天晚上凌晨一点钟执行这个任务
+0 */2 ? * * 每隔两个小时定时执行这个任务
+30 21 ? * * 每天晚上九点半定时执行这个任务
+
+
+
+
+
+
+
+
+
+4. sqoop数据迁移
+
+4.1、概述
+sqoop是apache旗下一款“Hadoop和关系数据库服务器之间传送数据”的工具。
+导入数据：MySQL，Oracle导入数据到Hadoop的HDFS、HIVE、HBASE等数据存储系统；
+导出数据：从Hadoop的文件系统中导出数据到关系数据库mysql等
+
+工作机制
+将导入或导出命令翻译成mapreduce程序来实现
+在翻译出的mapreduce中主要是对inputformat和outputformat进行定制
+4.4 、sqoop实战及原理
+
+
+3.4.1 sqoop安装
+安装sqoop的前提是已经具备java和hadoop的环境
+1、下载并解压
+下载地址
+http://archive.apache.org/dist/sqoop/1.4.7
+sqoop1版本详细下载地址
+http://archive.apache.org/dist/sqoop/1.4.7/sqoop-1.4.7.bin__hadoop-2.6.0.tar.gz
+sqoop2版本详细下载地址
+http://archive.apache.org/dist/sqoop/1.99.6/sqoop-1.99.6-bin-hadoop200.tar.gz
+我们这里使用sqoop1的版本，下载之后上传到/home/hadoop/software目录下，然后进行解压
+
+cd /home/hadoop/software
+tar -zxvf sqoop-1.4.7.bin__hadoop-2.6.0.tar.gz -C ../mw/
+
+2、修改配置文件
+cd /home/hadoop/mw/sqoop-1.4.7.bin__hadoop-2.6.0/conf
+cp sqoop-env-template.sh sqoop-env.sh
+vim sqoop-env.sh
+
+# 找到对应的配置项,打开对应注释
+export HADOOP_COMMON_HOME=/home/hadoop/mw/hadoop-3.1.1
+export HADOOP_MAPRED_HOME=/home/hadoop/mw/hadoop-3.1.1
+export HIVE_HOME=/home/hadoop/mw/apache-hive-3.1.0-bin/
+
+
+3、加入额外的依赖包
+sqoop的使用需要添加两个额外的依赖包，一个是mysql的驱动包，一个是java-json的依赖包，不然就会报错
+mysql-connector-java-5.1.40.jar
+java-json.jar
+将这个两个jar包添加到sqoop的lib目录下
+
+cp /home/hadoop/software/mysql-connector-java-5.1.40.jar /home/hadoop/mw/sqoop-1.4.7.bin__hadoop-2.6.0/lib/
+cp /home/hadoop/software/java-json.jar /home/hadoop/mw/sqoop-1.4.7.bin__hadoop-2.6.0/lib/
+
+4、验证启动
+cd /home/hadoop/mw/sqoop-1.4.7.bin__hadoop-2.6.0
+bin/sqoop-version
+
+
+4.5、 Sqoop的数据导入
+“导入工具”导入单个表从RDBMS到HDFS。表中的每一行被视为HDFS的记录。所有记录
+都存储为文本文件的文本数据（或者Avro、sequence文件等二进制数据）
+
+列举出所有的数据库
+命令行查看帮助
+bin/sqoop list-databases --help
+
+列出windows主机所有的数据库(这里的 10.57.17.214 是云主机的ip, 本地windows装了mysql可以用本机ip)
+bin/sqoop list-databases --connect jdbc:mysql://10.57.17.214:3306/ --username root --password 123456
+
+查看某一个数据库下面的所有数据表(这里的 10.57.17.214 是云主机的ip, 本地windows装了mysql可以用本机ip)
+bin/sqoop list-tables --connect jdbc:mysql://10.57.17.214:3306/bp_atreus --username root --password 123456
+
+如果出现连接拒绝，可在mysql的数据库中执行以下命令:
+开启windows的远程连接权限
+GRANT ALL PRIVILEGES ON *.* TO '需授权用户'@'%' IDENTIFIED BY '你需要授权用户的密码' WITH GRANT OPTION;
+例:
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '123456' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+
+
+
+导入数据库表数据到HDFS
+下面的命令用于从MySQL数据库服务器中的emp表导入HDFS。
+(使用 mysql数据库中系统表 user 测试导入到hdfs;不指定分隔符则默认使用逗号)
+
+cd /home/hadoop/mw/sqoop-1.4.7.bin__hadoop-2.6.0
+bin/sqoop import --connect jdbc:mysql://10.57.17.214:3306/mysql --username root --password 123456 --table user --m 1
+
+如果成功执行，那么会得到下面的输出。
+为了验证在HDFS导入的数据，请使用以下命令查看导入的数据
+hdfs dfs -ls /user/root/user
+或者通过页面下载查看数据(路径也是 /user/root/user )
+http://192.168.25.110:50070/explorer.html#/user/root/user
+
+导入到HDFS指定目录
+在导入表数据到HDFS使用Sqoop导入工具，我们可以指定目标目录。
+使用参数 --target-dir 来指定导出目的地，
+使用参数 —delete-target-dir 来判断导出目录是否存在，如果存在就删掉
+使用参数 --m 表示使用几个mapreduce
+
+cd /home/hadoop/mw/sqoop-1.4.7.bin__hadoop-2.6.0
+bin/sqoop import --connect jdbc:mysql://10.57.17.214:3306/mysql --username root --password 123456 --delete-target-dir --table help_category --target-dir /sqoop/category --m 1
+
+查看导出的数据
+hdfs dfs -text /sqoop/category/part-m-00000
+
+
+
+
+它会用逗号(,)分隔表的数据和字段。
+导入到hdfs指定目录并指定字段之间的分隔符(通过 --fields-terminated-by 来指定)
+cd /home/hadoop/mw/sqoop-1.4.7.bin__hadoop-2.6.0
+bin/sqoop import --connect jdbc:mysql://10.57.17.214:3306/mysql --username root --password 123456 --delete-target-dir --table help_category --target-dir /sqoop/category2 --m 1 --fields-terminated-by '\t'
+
+查看文件内容
+hdfs dfs -text /sqoop/category2/part-m-00000
+
+导入关系表到HIVE
+将我们mysql表当中的数据直接导入到hive表中的话，
+我们需要将hive的一个叫做hiveexec-3.1.1.jar 的jar包拷贝到sqoop的lib目录下
+第一步：拷贝jar包
+cp /home/hadoop/mw/apache-hive-3.1.0-bin/lib/hive-exec-3.1.0.jar /home/hadoop/mw/sqoop-1.4.7.bin__hadoop-2.6.0/lib
+
+查看复制结果
+ll /home/hadoop/mw/sqoop-1.4.7.bin__hadoop-2.6.0/lib|grep hive-exec-3.1.0.jar
+
+第二步：准备hive数据库与表
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+bin/hive
+
+create database sqooptohive;
+use sqooptohive;
+CREATE external TABLE help_category_hive(help_category_id int,name string,parent_category_id int,url string) row format delimited fields terminated by '\001';
+
+
+第三步：开始导入(将我们mysql当中的数据导入到hive表当中来)
+指定导入为hive模式 --hive-import
+指定hive的哪个数据库的哪个表 --hive-table
+表示数据覆盖 --hive-overwrite
+
+cd /home/hadoop/mw/sqoop-1.4.7.bin__hadoop-2.6.0
+bin/sqoop import --connect jdbc:mysql://10.57.17.214:3306/mysql --username root --password 123456 --table help_category --fields-terminated-by '\001' --hive-import --hive-table sqooptohive.help_category_hive --hive-overwrite --delete-target-dir --m 1
+
+第四步：hive表数据查看
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+bin/hive;
+
+use sqooptohive;
+select * from help_category;
+
+
+
+导入关系表到hive并自动创建hive表(前提表字段hive能识别,特殊字段类型hive无法识别)
+我们也可以通过命令来将我们的mysql的表直接导入到hive表当中去
+
+bin/sqoop import --connect jdbc:mysql://10.57.17.214:3306/mysql --username root --password 123456 --table help_topic --hive-import -m 1 --hive-database sqooptohive
+
+通过这个命令，我们可以直接将我们mysql表当中的数据以及表结构一起倒入到hive当中去
+cd /home/hadoop/mw/apache-hive-3.1.0-bin
+bin/hive;
+
+use sqooptohive;
+show tables;
+select * from help_topic;
+
+导入表数据子集
+我们可以导入表的使用Sqoop导入工具，"where"子句的一个子集。它执行在各自的数据库服务器相应的SQL查询，并将结果存储在HDFS的目标目录。
+where子句的语法如下。
+按照条件进行查找，通过 —where参数来查找表 user 当中User字段的值为root的
+所有数据导入到hdfs上面去
+bin/sqoop import \
+--connect jdbc:mysql://10.57.17.214:3306/mysql \
+--username root --password 123456 --table user \
+--target-dir /sqoop/user_root -m 1 --delete-target-dir \
+--where "User = 'root'"
+
+查看hdfs数据内容
+hdfs dfs -text /sqoop/user_root/part*
+
+
+sql语句查找导入hdfs
+我们还可以通过 –query参数来指定我们的sql语句，通过sql语句来过滤我们的数据进行导入
+bin/sqoop import \
+--connect jdbc:mysql://10.57.17.214:3306/mysql --username root --password 123456 \
+--delete-target-dir -m 1 \
+--query 'select User from user where 1=1 and $CONDITIONS' \
+--target-dir /sqoop/user_tmp
+
+查看hdfs数据内容
+hdfs dfs -text /sqoop/user_tmp/part*
+
+
+
+增量导入
+在实际工作当中，数据的导入，很多时候都是只需要导入增量数据即可，并不需要将表中的数据全部导入到hive或者hdfs当中去，
+肯定会出现重复的数据的状况，所以我们一般都是选用一些字段进行增量的导入，为了支持增量的导入，
+sqoop也给我们考虑到了这种情况并且支持增量的导入数据。
+它需要添加‘incremental’, ‘check-column’, 和 ‘last-value’选项来执行增量导入。
+
+
+第一种增量导入使用上面的选项来实现
+导入 help_category 表当中 help_category_id 大于 20 的所有数据
+注意：增量导入的时候，一定不能加参数--delete-target-dir否则会报错
+--incremental append 				表示追加方式增量导入
+--check-column help_category_id 	需要检查增量的列
+--last-value 20						上次导入的最后一个值
+
+再增量导入
+bin/sqoop import \
+--connect jdbc:mysql://10.57.17.214:3306/mysql \
+--username root \
+--password 123456 \
+--table help_category \
+--incremental append \
+--check-column help_category_id \
+--last-value 20 \
+-m 1 \
+--target-dir /sqoop/help_category_increment
+
+查看hdfs数据内容
+hdfs dfs -text /sqoop/help_category_increment/part*
+
+
+
+第二种增量导入通过--where条件来实现
+或者我们使用--where来进行控制数据的选取会更加精准
+
+bin/sqoop import \
+--connect jdbc:mysql://10.57.17.214:3306/mysql \
+--username root \
+--password 123456 \
+--table help_category \
+--incremental append \
+--check-column help_category_id \
+--where "parent_category_id > 30 and parent_category_id < 36" \
+-m 1 \
+--target-dir /sqoop/help_category_where
+
+查看hdfs数据内容
+hdfs dfs -text /sqoop/help_category_where/part*
+
+
+
+Sqoop的数据导出(将数据从HDFS把文件导出到RDBMS数据库)
+导出前，目标表必须存在于目标数据库中。
+默认操作是从将文件中的数据使用INSERT语句插入到表中
+更新模式下，是生成UPDATE语句更新表数据
+
+hdfs导出到mysql
+数据是在HDFS当中的如下目录 /sqoop/category (之前操作已导入到hdfs)
+
+CREATE TABLE `help_category_out` (
+  `help_category_id` smallint(5),
+  `name` VARCHAR(512) NOT NULL,
+  `parent_category_id` smallint(5),
+  `url` VARCHAR(512) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='help categories';
+
+
+bin/sqoop export \
+--connect jdbc:mysql://10.57.17.214:3306/bp_atreus \
+--username root --password 123456 \
+--table help_category_out \
+--export-dir /sqoop/category \
+--input-fields-terminated-by ","
+
+验证mysql表数据(在对应 10.57.17.214:3306/bp_atreus 数据库中查询)
+select * from help_category_out;
+
+
+
+
+
+
+
+
 
 
 

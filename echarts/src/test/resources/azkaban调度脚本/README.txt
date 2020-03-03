@@ -1,0 +1,3 @@
+job均依赖前面job的执行成功
+最终将所有的job,及依赖的sql,jar打包成一个压缩包
+上传至azkaban运行
