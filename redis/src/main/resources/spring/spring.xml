@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:contest="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+			    http://www.springframework.org/schema/beans/spring-beans.xsd
+			    http://www.springframework.org/schema/context
+			    http://www.springframework.org/schema/context/spring-context.xsd
+			    http://www.springframework.org/schema/aop
+			    http://www.springframework.org/schema/aop/spring-aop.xsd
+			    http://www.springframework.org/schema/tx
+			    http://www.springframework.org/schema/tx/spring-tx.xsd
+			    http://www.springframework.org/schema/mvc
+			    http://www.springframework.org/schema/mvc/spring-mvc.xsd">
+
+    <!-- import begin -->
+    <import resource="classpath:spring/spring-redis.xml"/>
+    <!-- import end -->
+
+    <!-- dao层配置开始 -->
+
+    <!-- 配置数据源 -->
+    <!--<bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="driverClass" value="com.mysql.jdbc.Driver"/>
+        <property name="jdbcUrl" value="jdbc:mysql://192.168.25.161:3306/learn" />
+        <property name="user" value="root" />
+        <property name="password" value="123456" />
+    </bean>-->
+
+    <!-- 创建一个SqlSession工厂对象,因为SqlSession并不是线程安全的
+         所以每次查询都需要有自己独立的SqlSession,那么我们就需要使用工厂模式来创建SqlSession对象
+         持久层框架使用的是mybatis,所以使用spring和mybatis整合包中的SqlSessionFactoryBean
+         (在class属性中直接输入该名称idea就会自动补全)
+    -->
+   <!-- <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        &lt;!&ndash; SqlSessionFactory操作数据库需要数据源,引入数据源 &ndash;&gt;
+        <property name="dataSource" ref="dataSource" />
+        &lt;!&ndash; 给pojo对象起别名(使用注解开发可以省略) 默认指定pojo的包,
+        这样别名就是类的全名,大小写无所谓,习惯首字母小写 &ndash;&gt;
+        <property name="typeAliasesPackage" value="com.nier.redis.domain" />
+    </bean>-->
+
+    <!-- 我们对所有dao接口包下的接口进行扫描,使用SqlSession对象给其创建代理对象,并且放入到容器中
+         因为是自动扫描并创建,我们不会引用到该对象,那么它的id属性可以省略,也可以写
+     -->
+    <!--<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer" >
+        &lt;!&ndash; 指定需要扫描的包路径 &ndash;&gt;
+        <property name="basePackage" value="com.nier.redis.dao" />
+    </bean>-->
+
+    <!--dao层配置结束-->
+
+
+    <!-- service层配置开始 -->
+
+    <!-- 组件扫描注解
+         让spring扫描指定包下的类,遇到spring识别的注解则可以交给BeanFactory进行IOC处理
+     -->
+    <contest:component-scan base-package="com.nier.redis.service" />
+
+    <!-- 配置事务管理器 -->
+    <!--<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        &lt;!&ndash; 注入连接池,数据库连接才能实际上完成事务操作 &ndash;&gt;
+        <property name="dataSource" ref="dataSource" />
+    </bean>-->
+
+    <!-- 开启事务注解的支持 -->
+    <tx:annotation-driven />
+
+    <!-- service层配置结束-->
+
+
+</beans>
