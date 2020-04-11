@@ -1,3 +1,0 @@
-type=command
-dependencies=log_wash
-command=sh log_click.sh

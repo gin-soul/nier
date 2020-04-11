@@ -37,6 +37,25 @@
             </exclusions>
         </dependency>
 
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+        </dependency>
+
+        <!-- springboot 模板包,支持spring返回项目中resources下面templates目录中的 .html页面 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+
+        <!-- spring boot 开发插件,只需引入即可检测代码是否变更,变更后会重启 -->
+        <!-- 更高要求可以使用 jrebel ,配置会更加复杂,但是是热部署(只reload变更的class,不会重启项目) -->
+        <!--<dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+        </dependency>-->
+
+
         <!-- Add Log4j2 Dependency begin -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

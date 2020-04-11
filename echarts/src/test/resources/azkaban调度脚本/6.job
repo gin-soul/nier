@@ -1,3 +1,0 @@
-type=command
-command=sh 6.sh
-dependencies=5

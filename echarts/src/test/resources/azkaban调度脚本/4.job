@@ -1,3 +1,0 @@
-type=command
-command=sh 4.sh
-dependencies=3

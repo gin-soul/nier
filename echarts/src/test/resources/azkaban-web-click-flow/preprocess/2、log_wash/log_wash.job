@@ -1,3 +1,0 @@
-type=command
-dependencies=mv_to_work_dir
-command=sh log_wash.sh

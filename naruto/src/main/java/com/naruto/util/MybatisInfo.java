@@ -1,4 +1,4 @@
-package com.naruto.chapter01;
+package com.naruto.util;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -69,7 +69,7 @@ import java.util.*;
  */
 public class MybatisInfo {
 
-    private static final Logger logger = LogManager.getLogger(com.naruto.util.MybatisInfo.class);
+    private static final Logger logger = LogManager.getLogger(MybatisInfo.class);
 
     private static List<String> list = new ArrayList<String>() {
         {
