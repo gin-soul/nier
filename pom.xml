@@ -33,7 +33,7 @@
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <!-- 统一管理jar包版本 -->
-    <alibaba.fastjson>1.2.62</alibaba.fastjson>
+    <alibaba.fastjson>1.2.83</alibaba.fastjson>
   </properties>
 
   <!-- 锁定jar包版本
